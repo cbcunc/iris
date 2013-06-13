@@ -60,11 +60,11 @@ class TestStreamTransport(tests.IrisTest):
         dx, dy, dzu, dzv = iris.load_cubes(mesh_file, mesh_phenom)
         
         # cut it down before loading
-        t = t[:, :5]
-        u = u[:, :5]
-        v = v[:, :5]
-        dzu = dzu[:5]
-        dzv = dzv[:5]
+        t = t[:, :2]
+        u = u[:, :2]
+        v = v[:, :2]
+        dzu = dzu[:2]
+        dzv = dzv[:2]
         
         # Lump it all together.
         cls.input_cubes = {"t": t, "u": u, "v": v, "region_mask": region_mask,
@@ -82,6 +82,7 @@ class TestStreamTransport(tests.IrisTest):
         # recalculate the path in a separate path test.
         
         t = self.input_cubes["t"]
+        mod_name = module.__name__.split(".")[-1]
 
         # Each item in path_func_args defines a latitude/line to test.
         # For each, calculate and test a path through the data.
@@ -100,12 +101,12 @@ class TestStreamTransport(tests.IrisTest):
             sf = stream_transport.stream_function(self.input_cubes, path)
             self.assertString(str(sf), tests.get_result_path((
                 "experimental", "stream_transport",
-                "{}_stream_{}.txt".format(module.__name__, i)))) 
+                "{}_stream_{}.txt".format(mod_name, i)))) 
             
             nt = stream_transport.net_transport(self.input_cubes, path)
             self.assertString(str(nt), tests.get_result_path((
                 "experimental", "stream_transport",
-                "{}_net_{}.txt".format(module.__name__, i))))
+                "{}_net_{}.txt".format(mod_name, i))))
 
         self.check_graphic()
 
@@ -114,7 +115,7 @@ class TestStreamTransport(tests.IrisTest):
         self.integration_test(top_edge, input_lats)
 
     def test_line_walk(self):
-        input_lats = [60, 70, 80]
+        input_lats = [60, 70, 80] #[85]!!!
         input_lines = [[np.array((-180.0, lat)), np.array((180.0, lat))]
                        for lat in input_lats]
         self.integration_test(line_walk, input_lines)

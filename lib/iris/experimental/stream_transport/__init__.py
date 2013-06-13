@@ -190,9 +190,9 @@ if __name__ == "__main__":
     t, u, v = iris.load_cubes(tuv_files, tuv_phenom)
     
     # cut it down before loading
-    t = t[:, :5]
-    u = u[:, :5]
-    v = v[:, :5]
+    t = t[:, :3]
+    u = u[:, :3]
+    v = v[:, :3]
     
    
     # Load region mask
@@ -208,31 +208,46 @@ if __name__ == "__main__":
     dx, dy, dzu, dzv = iris.load_cubes(mesh_file, mesh_phenom)
     
     # cut it down before loading
-    dzu = dzu[:5]
-    dzv = dzv[:5]
+    dzu = dzu[:3]
+    dzv = dzv[:3]
     
 
     # Lump it all together.
-    input_cubes = {"t": t.data, "u": u.data, "v": v.data,
-                   "region_mask": region_mask.data,
-                   "dx": dx.data, "dy": dy.data,
-                   "dzu": dzu.data, "dzv": dzv.data}
+    input_cubes = {"t": t, "u": u, "v": v, "region_mask": region_mask,
+                   "dx": dx, "dy": dy, "dzu": dzu, "dzv": dzv}
 
+
+
+
+    checkers = np.zeros(t.shape[-2:], dtype=int)
+    checkers[::2, ::2] = 1
+    checkers[1::2, 1::2] = 1
+    checkers[0,0] = 8
+    plt.pcolormesh(checkers, cmap="binary")
 
     
     
     ### Run the calculations ###
     
+    lats = [85]#[65, 75, 85]
+    for lat in lats:
+        input_line = [np.array((-180.0, lat)), np.array((180.0, lat))]
+    
+        print "getting path"
+#         path = line_walk.find_path(t, line=input_line)
+        path = top_edge.find_path(t, lat=lat)
+        print [len(seg) for seg in path]
+        for seg in path:
+            seg = np.array(seg)
+            plt.plot(seg[:,1], seg[:,0], c="green", linewidth=2)
 
-    print "getting path"
-    input_line = np.array((-180.0, 80)), np.array((180.0, 80))
-    path = line_walk.find_path(t, line=input_line)
-    print "path", [len(seg) for seg in path]
 
-    print "stream_function"
-    sf = stream_function(input_data, path)
+    
+        print "stream_function"
+        sf = stream_function(input_cubes, path)
+    
+        print "net_transport"
+        nt = net_transport(input_cubes, path)
 
-    print "net_transport"
-    nt = net_transport(input_data, path)
-
+    plt.show()
     print "finished"

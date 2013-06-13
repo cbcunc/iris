@@ -143,11 +143,12 @@ def find_path(cube, line):
                 # Add points until we're 1 step away
                 walk_back_dim = np.where(np.abs(ijdiff) > 1)[0]
                 dir = 1 if ijdiff[walk_back_dim] > 0 else -1
-                 
                 num_walkback_steps = abs(ijdiff[walk_back_dim]) - 1
-                walkback_ij = segs[-1][-1].copy()
+
+                walkback_ij_start = segs[-1][-1].copy()
                 for walkback_step in range(num_walkback_steps):
-                    walkback_ij[walk_back_dim] += dir
+                    walkback_ij = walkback_ij_start.copy()
+                    walkback_ij[walk_back_dim] += dir * (walkback_step+1)
                     add_point(segs, walkback_ij)
                     
                 # Check we've got a 1,1
