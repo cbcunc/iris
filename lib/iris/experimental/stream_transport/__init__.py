@@ -188,12 +188,6 @@ if __name__ == "__main__":
                   'sea_water_x_velocity',
                   'sea_water_y_velocity']
     t, u, v = iris.load_cubes(tuv_files, tuv_phenom)
-    
-    # cut it down before loading
-    t = t[:, :3]
-    u = u[:, :3]
-    v = v[:, :3]
-    
    
     # Load region mask
     region_mask_file = '/project/ujcc/CDFTOOLS/mesh_ORCA025L75/' \
@@ -208,8 +202,11 @@ if __name__ == "__main__":
     dx, dy, dzu, dzv = iris.load_cubes(mesh_file, mesh_phenom)
     
     # cut it down before loading
-    dzu = dzu[:3]
-    dzv = dzv[:3]
+    t = t[:, :2]
+    u = u[:, :2]
+    v = v[:, :2]
+    dzu = dzu[:2]
+    dzv = dzv[:2]
     
 
     # Lump it all together.
@@ -223,31 +220,62 @@ if __name__ == "__main__":
     checkers[::2, ::2] = 1
     checkers[1::2, 1::2] = 1
     checkers[0,0] = 8
-    plt.pcolormesh(checkers, cmap="binary")
 
+
+    do_ij_plot = True
     
+    
+    def plot_ijpath(path):
+        for seg in path:
+            seg = np.array(seg)
+            ij_ax.plot(seg[:,1], seg[:,0], c="green")
+
+    def plot_llpath(paths):
+        for seg in paths:
+            lats = np.ndarray((len(seg), 2))
+            lons = np.ndarray((len(seg), 2))
+            for i, ij in enumerate(seg):
+#                 lons[i] = lon_tr[ij[0]-1, ij[1]-1]
+#                 lats[i] = lat_tr[ij[0]-1, ij[1]-1]
+                lons[i] = lon_tr[ij[0], ij[1]]
+                lats[i] = lat_tr[ij[0], ij[1]]
+            ll_ax.plot(lons, lats, c="green")
+
+
+    if do_ij_plot:
+        ij_ax = plt.subplot(211)
+        ij_ax.pcolormesh(checkers, cmap="binary")
+        ll_ax = plt.subplot(212, aspect="equal")
+    else:
+        ll_ax = plt.axes(aspect="equal")
+        
+    lon_coord = t.coord('longitude')
+    lat_coord = t.coord('latitude')
+    ll_ax.pcolormesh(lon_coord.bounds[..., 2], lat_coord.bounds[..., 2], checkers, cmap="binary")
+    lon_tr = lon_coord.bounds[..., 2]
+    lat_tr = lat_coord.bounds[..., 2]
     
     ### Run the calculations ###
     
-    lats = [85]#[65, 75, 85]
+    lats = [65, 75, 85]
     for lat in lats:
         input_line = [np.array((-180.0, lat)), np.array((180.0, lat))]
     
         print "getting path"
-#         path = line_walk.find_path(t, line=input_line)
-        path = top_edge.find_path(t, lat=lat)
+        path = line_walk.find_path(t, line=input_line)#, debug_ax=ll_ax)
+#         path = top_edge.find_path(t, lat=lat)
         print [len(seg) for seg in path]
-        for seg in path:
-            seg = np.array(seg)
-            plt.plot(seg[:,1], seg[:,0], c="green", linewidth=2)
-
+        if do_ij_plot:
+            plot_ijpath(path)
+        plot_llpath(path)
 
     
-        print "stream_function"
-        sf = stream_function(input_cubes, path)
-    
-        print "net_transport"
-        nt = net_transport(input_cubes, path)
+#         print "stream_function"
+#         sf = stream_function(input_cubes, path)
+#     
+#         print "net_transport"
+#         nt = net_transport(input_cubes, path)
 
     plt.show()
     print "finished"
+

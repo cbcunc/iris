@@ -111,11 +111,11 @@ class TestStreamTransport(tests.IrisTest):
         self.check_graphic()
 
     def test_top_edge(self):
-        input_lats = [60, 70, 80]
+        input_lats = [65, 75, 85]
         self.integration_test(top_edge, input_lats)
 
     def test_line_walk(self):
-        input_lats = [60, 70, 80] #[85]!!!
+        input_lats = [65, 75, 85]
         input_lines = [[np.array((-180.0, lat)), np.array((180.0, lat))]
                        for lat in input_lats]
         self.integration_test(line_walk, input_lines)
