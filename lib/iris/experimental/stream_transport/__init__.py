@@ -141,7 +141,11 @@ def get_path_data(input_data, path, grid_type='C'):
     return data
 
 
-def _common(input_data, path, grid_type='C'):
+def _common(input_cubes, path, grid_type='C'):
+    
+    # We only want data from here on.
+    input_data = {k:v.data for k,v in input_cubes.items()}
+    
     path_data = get_path_data(input_data, path, grid_type=grid_type)
     uv, dxdy, dz = path_data["uv"], path_data["dxdy"], path_data["dz"] 
 
@@ -209,10 +213,10 @@ if __name__ == "__main__":
     
 
     # Lump it all together.
-    input_data = {"t": t.data, "u": u.data, "v": v.data,
-                  "region_mask": region_mask.data,
-                  "dx": dx.data, "dy": dy.data,
-                  "dzu": dzu.data, "dzv": dzv.data}
+    input_cubes = {"t": t.data, "u": u.data, "v": v.data,
+                   "region_mask": region_mask.data,
+                   "dx": dx.data, "dy": dy.data,
+                   "dzu": dzu.data, "dzv": dzv.data}
 
 
     
@@ -220,13 +224,9 @@ if __name__ == "__main__":
     ### Run the calculations ###
     
 
-    # TODO: remove this workaround when fixed.
-    # take the first slice of t, as the line walker currently needs 2D.
-    t00 = t[0, 0]
-
     print "getting path"
     input_line = np.array((-180.0, 80)), np.array((180.0, 80))
-    path = line_walk.find_path(t00, line=input_line)
+    path = line_walk.find_path(t, line=input_line)
     print "path", [len(seg) for seg in path]
 
     print "stream_function"
