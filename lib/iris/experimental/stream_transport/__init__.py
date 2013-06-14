@@ -222,24 +222,41 @@ if __name__ == "__main__":
     checkers[0,0] = 8
 
 
-    do_ij_plot = True
+    do_ij_plot = False
     
     
-    def plot_ijpath(path):
+    def plot_ijpath(path, col):
         for seg in path:
             seg = np.array(seg)
-            ij_ax.plot(seg[:,1], seg[:,0], c="green")
+            ij_ax.plot(seg[:,1], seg[:,0], c=col)
 
-    def plot_llpath(paths):
+#     def plot_llpath(paths):
+#         for seg in paths:
+#             lats = np.ndarray((len(seg), 2))
+#             lons = np.ndarray((len(seg), 2))
+#             for i, ij in enumerate(seg):
+#                 lons[i] = lon_tr[ij[0], ij[1]]
+#                 lats[i] = lat_tr[ij[0], ij[1]]
+#             ll_ax.plot(lons, lats, c="green")
+
+    def plot_llpath(paths, col):
+        # Doesn't draw lines that wrap, so not drawing the whole path in ll.
         for seg in paths:
-            lats = np.ndarray((len(seg), 2))
-            lons = np.ndarray((len(seg), 2))
+            lats = []
+            lons = []
             for i, ij in enumerate(seg):
-#                 lons[i] = lon_tr[ij[0]-1, ij[1]-1]
-#                 lats[i] = lat_tr[ij[0]-1, ij[1]-1]
-                lons[i] = lon_tr[ij[0], ij[1]]
-                lats[i] = lat_tr[ij[0], ij[1]]
-            ll_ax.plot(lons, lats, c="green")
+                # TODO: Investigate why we need this (bad indexing otherwise)...
+                lon = lon_tr[ij[0]-1, ij[1]-1]
+                lat = lat_tr[ij[0]-1, ij[1]-1]
+                if len(lats) == 0 or (abs(lon - lons[-1]) < 90):
+                    lons.append(lon)
+                    lats.append(lat)
+                else:
+                    if len(lats) != 0:
+                        ll_ax.plot(lons, lats, c=col)
+                    lats = []
+                    lons = []
+            ll_ax.plot(lons, lats, c=col)
 
 
     if do_ij_plot:
@@ -257,17 +274,22 @@ if __name__ == "__main__":
     
     ### Run the calculations ###
     
-    lats = [65, 75, 85]
+    lats = [85]#[65, 75, 85]
     for lat in lats:
         input_line = [np.array((-180.0, lat)), np.array((180.0, lat))]
-    
-        print "getting path"
-        path = line_walk.find_path(t, line=input_line)#, debug_ax=ll_ax)
-#         path = top_edge.find_path(t, lat=lat)
+        ll_ax.plot([-180, 180], [lat, lat], c="blue")
+
+        path = line_walk.find_path(t, line=input_line, debug_ax=ll_ax)
         print [len(seg) for seg in path]
         if do_ij_plot:
-            plot_ijpath(path)
-        plot_llpath(path)
+            plot_ijpath(path, "green")
+        plot_llpath(path, "green")
+# 
+#         path = top_edge.find_path(t, lat=lat)
+#         if do_ij_plot:
+#             plot_ijpath(path, "red")
+#         plot_llpath(path, "red")
+
 
     
 #         print "stream_function"

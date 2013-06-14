@@ -165,7 +165,7 @@ def find_path(cube, line, debug_ax=None):
     # Find closest corner points to line
     d = dist_vect / num_steps
     if debug_ax:
-        debug_start = 140
+        debug_start = 2550
         debug_end = debug_start + 50
         traversed_x = [None] * (debug_end - debug_start + 1)
         traversed_y = [None] * (debug_end - debug_start + 1)
