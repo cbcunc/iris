@@ -1,3 +1,4 @@
+from collections import namedtuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,6 +7,18 @@ import numpy.ma as ma
 import iris
 import line_walk
 import top_edge
+
+
+
+class Data(namedtuple('Data', 't u v dx dy dzu dzv')):
+    def payload(self):
+        return Data(*[getattr(self, attr).data if attr != 't' else None
+                      for attr in self._fields])
+
+
+class PathData(namedtuple('PathData', 'uv dxdy dz')):
+    pass
+
 
 def _up_U(start_yx, end_yx, grid_type):
     if grid_type == 'C':
@@ -19,6 +32,7 @@ def _up_U(start_yx, end_yx, grid_type):
         x = start_yx[1]
     return y, x
 
+
 def _down_U(start_yx, end_yx, grid_type):
     if grid_type == 'C':
         y = end_yx[0]
@@ -30,6 +44,7 @@ def _down_U(start_yx, end_yx, grid_type):
         y = end_yx[0]
         x = start_yx[1]
     return y, x
+
 
 def _right_V(start_yx, end_yx, grid_type):
     if grid_type == 'C':
@@ -43,6 +58,7 @@ def _right_V(start_yx, end_yx, grid_type):
         x = end_yx[1]
     return y, x
 
+
 def _left_V(start_yx, end_yx, grid_type):
     if grid_type == 'C':
         y = end_yx[0] - 1
@@ -55,10 +71,9 @@ def _left_V(start_yx, end_yx, grid_type):
         x = end_yx[1]
     return y, x
 
-def _get_points(path, input_data, grid_type):
-    u, v = input_data["u"], input_data["v"]
-    dx, dy = input_data["dx"], input_data["dy"]
-    dzu, dzv = input_data["dzu"], input_data["dzv"]
+
+def _get_points(data, path, grid_type):
+    _, u, v, dx, dy,dzu, dzv = data
 
     # Determine the total number of edges in the path.
     n = sum(len(sub_path) - 1 for sub_path in path)
@@ -114,55 +129,63 @@ def _get_points(path, input_data, grid_type):
             dz[:, ni] = dz_src[:, y, x]
             ni += 1
 
-    return {"uv":uv, "dxdy":dxdy, "dz":dz}
+    return PathData(uv, dxdy, dz)
 
 
-def get_path_data(input_data, path, grid_type='C'):
+def path_data(data, path, region_mask=None, grid_type='C'):
+    # Only require the data payload of each cube.
+    t, u, v, dx, dy, dzu, dzv = data.payload()
 
     grid_type = grid_type.upper()
     if grid_type not in ['B', 'C']:
         raise ValueError('Invalid grid type {!r}.'.format(grid_type))
 
-    region_mask = input_data["region_mask"]
     if region_mask is not None:
-        u, v = input_data["u"], input_data["v"]
         u[..., region_mask] = ma.masked
         v[..., region_mask] = ma.masked
 
+    # Package up the data payload.
+    payload = Data(t, u, v, dx, dy, dzu, dzv)
+
     if grid_type == 'C':
-        data = _get_points(path, input_data, 'C')
+        data = _get_points(payload, path, grid_type)
     else:
-        # Code doesn't seem to handle returning an array...
-        raise Exception("Unhandled grid type?")
-        data1 = _get_points(path, input_data, 'B1')
-        data2 = _get_points(path, input_data, 'B2')
+        msg = 'Unhandled Arakawa grid type {!r}.'.format(grid_type)
+        raise iris.exceptions.NotYetImplemented(msg)
+
+        data1 = _get_points(payload, path, 'B1')
+        data2 = _get_points(payload, path, 'B2')
         data = [data1, data2]
 
     return data
 
 
-def _common(input_cubes, path, grid_type='C'):
-    
-    # We only want data from here on.
-    input_data = {k:v.data for k,v in input_cubes.items()}
-    
-    path_data = get_path_data(input_data, path, grid_type=grid_type)
-    uv, dxdy, dz = path_data["uv"], path_data["dxdy"], path_data["dz"] 
+def path_transport(data, path, region_mask=None, grid_type='C'):
+    uv, dxdy, dz = path_data(data, path,
+                             region_mask=region_mask,
+                             grid_type=grid_type)
 
     if dz.shape[-1] != uv.shape[-1]:
         dz = dz[:, np.newaxis]
     edge_transport = (uv * dz) + dxdy
+
     return edge_transport.sum(axis=-1)
 
 
-def stream_function(input_data, path, grid_type='C'):
-    path_transport = _common(input_data, path, grid_type=grid_type)
-    return path_transport.cumsum(axis=-1)
+def stream_function(data, path, region_mask=None, grid_type='C'):
+    transport = path_transport(data, path,
+                               region_mask=region_mask,
+                               grid_type=grid_type)
+
+    return transport.cumsum(axis=-1)
 
 
-def net_transport(input_data, path, grid_type='C'):
-    path_transport = _common(input_data, path, grid_type=grid_type)
-    return path_transport.sum(axis=-1)
+def net_transport(data, path, region_mask=None, grid_type='C'):
+    transport = path_transport(data, path,
+                               region_mask=region_mask,
+                               grid_type=grid_type)
+
+    return transport.sum(axis=-1)
 
 
 

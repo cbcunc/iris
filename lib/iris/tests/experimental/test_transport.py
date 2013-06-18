@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Iris.  If not, see <http://www.gnu.org/licenses/>.
 """
-Test the experimental ocean micro-sprint.
+Test the experimental transport functionality.
 
 """
 
@@ -34,7 +34,8 @@ import numpy as np
 import numpy.ma as ma
 
 import iris
-import iris.experimental.ocean as ocean
+import iris.experimental.transport as transport
+import iris.experimental.transport.top_edge as top_edge
 
 
 T_x_points = np.array([[2.5, 7.5, 12.5, 17.5],
@@ -108,25 +109,25 @@ class TestTCell(tests.IrisTest):
         self.cube = iris.load_cube(fname)
 
     def test_mask_single(self):
-        tcell = ocean.TCell(self.cube)
+        tcell = top_edge.TCell(self.cube)
         mask = tcell.latitude(60)
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'tcell_lat60.npy'))
+                                       'transport', 'tcell_lat60.npy'))
         self.assertArrayEqual(mask, fname)
 
     def test_mask_multi(self):
-        tcell = ocean.TCell(self.cube)
+        tcell = top_edge.TCell(self.cube)
         mask = tcell.latitude([59.8, 60])
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'tcell_lat_multi.npy'))
+                                       'transport', 'tcell_lat_multi.npy'))
         self.assertArrayEqual(mask, fname)
 
     def test_cache(self):
         dname = tempfile.mkdtemp()
-        tcell = ocean.TCell(self.cube, cache_dir=dname)
+        tcell = top_edge.TCell(self.cube, cache_dir=dname)
         mask = tcell.latitude(60)
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'tcell_lat60.npy'))
+                                       'transport', 'tcell_lat60.npy'))
         self.assertArrayEqual(mask, fname)
 
         cache = set(tcell._cache)
@@ -149,80 +150,83 @@ class TestPath(tests.IrisTest):
     def test_top_edge_parabola(self):
         fname_cube = tests.get_data_path(('NetCDF', 'ocean', 'tcell_lat60.nc'))
         cube = iris.load_cube(fname_cube)
-        tcell = ocean.TCell(cube)
+        tcell = top_edge.TCell(cube)
         mask = tcell.latitude(60)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname_path = tests.get_result_path(('experimental',
-                                            'ocean', 'path_lat60.npy'))
+                                            'transport', 'path_lat60.npy'))
         self.assertArrayEqual(path, fname_path)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
+        self.check_graphic()
+
+        top_edge.plot_ll(cube, mask, path)
         self.check_graphic()
 
     def test_top_edge_line_upper(self):
         cells = [(4, 0), (4, 1), (4, 2), (4, 3), (4, 4)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_line_upper.npy'))
+                                       'transport', 'top_edge_line_upper.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
     def test_top_edge_line_lower(self):
         cells = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_line_lower.npy'))
+                                       'transport', 'top_edge_line_lower.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
     def test_top_edge_line_left(self):
         cells = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_line_left.npy'))
+                                       'transport', 'top_edge_line_left.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
     def test_top_edge_line_right(self):
         cells = [(0, 4), (1, 4), (2, 4), (3, 4), (4, 4)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_line_right.npy'))
+                                       'transport', 'top_edge_line_right.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
     def test_top_edge_hoop_upper(self):
         cells = [(4, 0), (3, 1), (2, 2), (3, 3), (4, 4)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_hoop_upper.npy'))
+                                       'transport', 'top_edge_hoop_upper.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
     def test_top_edge_hoop_lower(self):
         cells = [(0, 0), (1, 1), (2, 2), (1, 3), (0, 4)]
         mask = make_mask(cells)
-        path = np.array(ocean.top_edge_path(mask))
+        path = np.array(top_edge.top_edge_path(mask))
         fname = tests.get_result_path(('experimental',
-                                       'ocean', 'top_edge_hoop_lower.npy'))
+                                       'transport', 'top_edge_hoop_lower.npy'))
         self.assertArrayEqual(path, fname)
 
-        ocean.plot_mask_path(mask, path)
+        top_edge.plot_ij(mask, path, lw=3)
         self.check_graphic()
 
 
@@ -248,13 +252,12 @@ class TestPathData(tests.IrisTest):
                              T_x_points, V_y_points,
                              depth_points=depth_points,
                              offset=24)
-        grid_cubes = (self.t, self.u, self.v)
-        mesh_cubes = (self.dx, self.dy, self.dzu, self.dzv)
-        self.transport = ocean.Transport(grid_cubes, mesh_cubes)
+        self.data = transport.Data(self.t, self.u, self.v,
+                                   self.dx, self.dy, self.dzu, self.dzv)
 
     def test_simple(self):
         path = [[(0, 1), (1, 1), (1, 2), (0, 2)]]
-        path_data = self.transport.path_data(path)
+        path_data = transport.path_data(self.data, path)
 
         expected_indices = [[0, 0], [0, 1], [0, 1]]
         expected_uv_cubes = [self.u, self.v, self.u]
@@ -283,7 +286,7 @@ class TestPathData(tests.IrisTest):
     def test_multi_path(self):
         path = [[(0, 1), (1, 1), (1, 2), (0, 2)],
                 [(0, 1), (1, 1), (1, 2), (0, 2)][::-1]]
-        path_data = self.transport.path_data(path)
+        path_data = transport.path_data(self.data, path)
 
         expected_indices = [[0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 0]]
         expected_uv_cubes = [self.u, self.v, self.u, self.u, self.v, self.u]
@@ -314,22 +317,24 @@ class TestPathData(tests.IrisTest):
     def test_bad_path(self):
         path = [[(-1, 1), (0, 1), (1, 1), (0, 1)]]
         with self.assertRaises(ValueError):
-            self.transport.path_data(path)
+            transport.path_data(self.data, path)
 
         path = [[(self.dx.shape[1], self.dx.shape[0]),
                  (self.dx.shape[1] - 1, self.dx.shape[0])]]
         with self.assertRaises(ValueError):
-            self.transport.path_data(path)
+            transport.path_data(self.data, path)
 
         path = [[(self.dx.shape[1], 0),
                  (self.dx.shape[1] - 1, 0)]]
         with self.assertRaises(ValueError):
-            self.transport.path_data(path)
+            transport.path_data(self.data, path)
 
         path = [[(self.dx.shape[1], 0)]]
-        path_data = self.transport.path_data(path)
+        path_data = transport.path_data(self.data, path)
         empty = np.array([], ndmin=2, dtype=np.float64).reshape(2, 0)
-        target = ocean.PathData(empty, np.array([], dtype=np.float64), empty)
+        target = transport.PathData(empty,
+                                    np.array([], dtype=np.float64),
+                                    empty)
         for actual, expected in zip(path_data, target):
             np.testing.assert_array_equal(actual, expected)
 
@@ -356,28 +361,24 @@ class TestTransport(tests.IrisTest):
                              T_x_points, V_y_points,
                              depth_points=depth_points,
                              offset=24)
-        grid_cubes = (self.t, self.u, self.v)
-        mesh_cubes = (self.dx, self.dy, self.dzu, self.dzv)
-        self.transport = ocean.Transport(grid_cubes, mesh_cubes)
+        self.data = transport.Data(self.t, self.u, self.v,
+                                   self.dx, self.dy, self.dzu, self.dzv)
 
     def test_simple_path_transport(self):
         path = [[(0, 1), (1, 1), (1, 2), (0, 2)]]
-        path_data = self.transport.path_data(path)
-        actual = self.transport.path_transport(*path_data)
+        actual = transport.path_transport(self.data, path)
         expected = ma.asarray([0.0, -480.0])
         np.testing.assert_array_equal(actual, expected)
 
     def test_simple_stream_function(self):
         path = [[(0, 1), (1, 1), (1, 2), (0, 2)]]
-        path_data = self.transport.path_data(path)
-        actual = self.transport.stream_function(*path_data)
+        actual = transport.stream_function(self.data, path)
         expected = ma.asarray([0.0, -480.0])
         np.testing.assert_array_equal(actual, expected)
 
     def test_simple_net_transport(self):
         path = [[(0, 1), (1, 1), (1, 2), (0, 2)]]
-        path_data = self.transport.path_data(path)
-        actual = self.transport.net_transport(*path_data)
+        actual = transport.net_transport(self.data, path)
         np.testing.assert_array_equal(actual, -480.0)
 
 

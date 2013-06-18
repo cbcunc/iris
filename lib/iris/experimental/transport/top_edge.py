@@ -1,3 +1,24 @@
+# (C) British Crown Copyright 2013, Met Office
+#
+# This file is part of Iris.
+#
+# Iris is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Iris is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Iris.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Functionality to support calculating mass transports along top edge T-cells
+of constant latitude.
+
+"""
 
 from collections import Iterable
 import cPickle
@@ -9,6 +30,9 @@ import subprocess
 import sys
 
 import numpy as np
+import numpy.ma as ma
+import matplotlib.colors as mpl_colors
+import matplotlib.pyplot as plt
 from shapely.geometry import LineString
 from shapely.geometry.polygon import LinearRing
 
@@ -16,11 +40,28 @@ import cartopy.crs as ccrs
 import iris
 
 
-def _remote_worker(args):
+# Segmented color map: binary and red.
+_CMAP_TABLE = {'red':   [(0.0, 0.0, 1.0),
+                         (0.8, 0.0, 1.0),
+                         (1.0, 1.0, 1.0)
+                         ],
+               'green': [(0.0, 0.0, 1.0),
+                         (0.8, 0.0, 0.0),
+                         (1.0, 0.0, 0.0)
+                         ],
+               'blue':  [(0.0, 0.0, 1.0),
+                         (0.8, 0.0, 0.0),
+                         (1.0, 0.0, 0.0)
+                         ]
+               }
+
+_CMAP = mpl_colors.LinearSegmentedColormap('_cmap', _CMAP_TABLE, 256)
+
+
+def _worker(args):
     """
-    Remote host server worker that performs the actual processing of
-    determining whether one or more lines of constant latitude intersect
-    the bounded cell geometry.
+    Performs the actual processing of determining whether one or more lines
+    of constant latitude intersect the bounded cell geometry.
 
     Used to generate a mask, therefore if a line intersects the cell
     geometry, then the result is False, otherwise True.
@@ -44,6 +85,33 @@ def _remote_worker(args):
     return result
 
 
+def _distribute_work(data):
+    """
+    Distributes processing over all availalble cpu cores to determine
+    which T-cells the one or more lines of constant latitude traverse.
+
+    Args:
+
+    * data:
+        Pickled tuple containing one or more lines of constant
+        latitude, and the :class:`shapely.geometry.polygon.LinearRing`
+        for the bounds of each target T-cell.
+
+    Returns:
+        A boolean :class:`numpy.ndarray`
+
+    """
+    lines, rings = cPickle.loads(data)
+    pool = multiprocessing.Pool()
+    chunks = rings.size / multiprocessing.cpu_count()
+    result = pool.map(_worker,
+                      zip([lines] * rings.size, rings), chunks)
+    result = np.array(result, dtype=np.bool)
+    pool.close()
+    pool.join()
+    return result
+
+
 def _remote_server():
     """
     Multi-processing remote host server, that distributes its processing
@@ -55,21 +123,14 @@ def _remote_server():
         Pickled processing result via the stdout file-handle.
 
     """
-    args = []
+    data = []
     # Receive input via stdin file-handle.
     for line in sys.stdin:
-        args.append(line)
-    args = ''.join(args)
-
-    lines, rings = cPickle.loads(args)
-    pool = multiprocessing.Pool()
-    chunks = rings.size / multiprocessing.cpu_count()
-    result = pool.map(_remote_worker,
-                      zip([lines] * rings.size, rings), chunks)
-    result = np.array(result, dtype=np.bool)
+        data.append(line)
+    data = ''.join(data)
+    # Perform the processing and pickle result.
+    result = _distribute_work(data)
     result = cPickle.dumps(result, cPickle.HIGHEST_PROTOCOL)
-    pool.close()
-    pool.join()
     # Return output via stdout file-handle.
     sys.stdout.write(result)
 
@@ -94,18 +155,23 @@ def _client(args):
     """
     host, data = args
 #    sys.stderr.write('child-{}: starting ...\n'.format(host))
-    call_server = 'import iris.experimental.transport.top_edge as top_edge; ' \
-        'top_edge._remote_server()'
-    proc = subprocess.Popen(['ssh',
-                             '-o UserKnownHostsFile=/dev/null',
-                             '-o StrictHostKeyChecking=no',
-                             '{}@{}'.format(os.getlogin(), host),
-                             '/usr/local/sci/bin/python2.7 -c "{}"'.format(call_server)],
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    out, err = proc.communicate(data)
-    result = cPickle.loads(out)
+    if host == os.uname()[1]:
+        # Distribute work over all the local host cores.
+        result = _distribute_work(data)
+    else:
+        # Delegate work to remote host server.
+        call_server = 'import iris.experimental.transport.top_edge as top_edge; ' \
+            'top_edge._remote_server()'
+        proc = subprocess.Popen(['ssh',
+                                 '-o UserKnownHostsFile=/dev/null',
+                                 '-o StrictHostKeyChecking=no',
+                                 '{}@{}'.format(os.getlogin(), host),
+                                 '/usr/local/sci/bin/python2.7 -c "{}"'.format(call_server)],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        out, err = proc.communicate(data)
+        result = cPickle.loads(out)
 #    sys.stderr.write('child-{}: Done!\n'.format(host))
     return result
 
@@ -140,6 +206,8 @@ class TCell(object):
         self.hosts = self.remote_hosts(hosts, ping)
         if not self.hosts:
             self.hosts = [os.uname()[1]]
+        if isinstance(hosts, basestring):
+            hosts = [hosts]
         self.cache_dir = cache_dir
         self._hash = self._generate_hash()
         if cache_dir is not None:
@@ -429,14 +497,18 @@ class TCell(object):
                 data = (lines, rings[offset:offset + step])
                 payload.append(cPickle.dumps(data, cPickle.HIGHEST_PROTOCOL))
 
-            pool = multiprocessing.Pool()
-            chunks = 1
-            result = pool.map(_client, zip(self.hosts, payload), chunks)
-            pool.close()
-            pool.join()
-            mask_result = np.concatenate(result)
+            if len(self.hosts) == 1 and self.hosts[0] == os.uname()[1]:
+                result = _client((self.hosts[0], payload[0]))
+            else:
+                pool = multiprocessing.Pool()
+                chunks = 1
+                result = pool.map(_client, zip(self.hosts, payload), chunks)
+                pool.close()
+                pool.join()
+                result = np.concatenate(result)
+
             ii, jj = indicies
-            mask[ii, jj] = mask_result
+            mask[ii, jj] = result
             del rings
 
             # Determine whether to cache the mask.
@@ -513,11 +585,124 @@ def top_edge_path(mask):
     return path
 
 
-def find_path(cube, latitudes, path_func=None, hosts=None, cache_dir=None):
+def plot_ij(mask, path, **kwargs):
+    """
+    Convenience function to plot the T-cell mask and path
+    in i-j space.
 
+    Args:
+
+    * mask:
+        The boolean :class:`numpy.ndarray` of T-cells participating
+        in one or more lines of constant latitude, which are set to False.
+
+    * path:
+        A list containing one or more top-edge sub-paths. Each sub-path is a
+        list of (row, column) tuple pairs.
+
+    """
+    shape = mask.shape[-2:]
+    nj, ni = shape
+    ax = plt.axes()
+    ax.set_xlim(0, ni)
+    ax.set_ylim(0, nj)
+    ax.set_xticks(np.arange(ni + 1))
+    ax.set_yticks(np.arange(nj + 1))
+    checkers = np.zeros(shape, dtype=np.float32)
+    checkers[::2, ::2] = 0.1
+    checkers[1::2, 1::2] = 0.1
+    result = np.where(mask == 0)
+    checkers[result[0], result[1]] = 1.0
+    ax.pcolormesh(checkers, cmap=_CMAP)
+    for sub_path in path:
+        sub_path = np.asarray(sub_path)
+        ax.plot(sub_path[:, 1], sub_path[:, 0], **kwargs)
+
+
+def plot_ll(cube, mask, path, **kwargs):
+    """
+    Convenience funtion to plot the T-cell mask and path in lat-lon space.
+
+    Args:
+
+    * cube:
+        The T-cell :class:`iris.cube.Cube`.
+
+    * mask:
+        The boolean :class:`numpy.ndarray` of T-cells participating
+        in one or more lines of constant latitude, which are set to False.
+
+    * path:
+        A list containing one or more top-edge sub-paths. Each sub-path is a
+        list of (row, column) i-j space tuple pairs.
+
+    """
+    shape = cube.shape[-2:]
+    nj, ni = shape
+    ax = plt.axes(aspect='equal')
+    checkers = np.zeros(shape, dtype=np.float32)
+    checkers[::2, ::2] = 0.1
+    checkers[1::2, 1::2] = 0.1
+    result = np.where(mask == 0)
+    checkers[result[0], result[1]] = 1.0
+    lat_trhc = cube.coord('latitude').bounds[..., 2]
+    lon_trhc = cube.coord('longitude').bounds[..., 2]
+    ax.pcolormesh(lon_trhc, lat_trhc, checkers, cmap=_CMAP)
+    for sub_path in path:
+        lats = []
+        lons = []
+        for i, (row, col) in enumerate(sub_path):
+            try:
+                lat = lat_trhc[row, col]
+                lon = lon_trhc[row, col]
+                if len(lons) and abs(lon - lons[-1]) > 90:
+                    ax.plot(lons, lats, **kwargs)
+                    lats = [lat]
+                    lons = [lon]
+                else:
+                    lats.append(lat)
+                    lons.append(lon)
+            except IndexError:
+                if len(lats):
+                    ax.plot(lons, lats, **kwargs)
+                    lats = []
+                    lons = []
+        if len(lats):
+            ax.plot(lons, lats, **kwargs)
+
+
+def generate_path(cube, latitudes, path_func=None, hosts=None, cache_dir=None):
+    """
+    Calculate the top-edge path for the one or more constant lines of latitude.
+
+    Args:
+
+    * cube:
+        The T-cell :class:`iris.cube.Cube`.
+
+    * latitudes:
+        One or more target latitudes, in Geodetic decimal degrees.
+
+    Kwargs:
+
+    * path_func:
+        The function responsible for generating the path list
+        from a :class:`TCell` mask. Defaults to :func:`top_edge_path`.
+
+    * hosts:
+        A sequence of one or more hostnames designated as
+        potential remote processing resources.
+
+    * cache_dir:
+        Directory where intermediate processing results are cached.
+
+    Returns:
+        A list containing one or more top-edge sub-paths. Each sub-path is a
+        list of (row, column) tuple pairs.
+
+    """
     tcell = TCell(cube, hosts=hosts, cache_dir=cache_dir)
     mask = tcell.latitude(latitudes)
     if path_func is None:
         path_func = top_edge_path
-    path = path_func(mask)
-    return path
+    return path_func(mask)
