@@ -138,6 +138,7 @@ class _CubeFilterCollection(object):
 
     def __init__(self, pairs):
         self.pairs = pairs
+        self._cache = CubeList()
 
     def add_cube(self, cube):
         """
@@ -145,8 +146,12 @@ class _CubeFilterCollection(object):
         constraint pairs.
 
         """
-        for pair in self.pairs:
-            pair.add(cube)
+        if iris.cache.is_cacheable() and iris.cache.full_key_available():
+            self.pairs = []
+            self._cache.append(cube)
+        else:
+            for pair in self.pairs:
+                pair.add(cube)
 
     def cubes(self):
         """
@@ -154,9 +159,17 @@ class _CubeFilterCollection(object):
         single :class:`CubeList`.
 
         """
-        result = CubeList()
-        for pair in self.pairs:
-            result.extend(pair.cubes)
+        result = None
+        if iris.cache.is_cacheable() and iris.cache.full_key_available():
+            result = self._cache
+        else:
+            result = CubeList()
+            for pair in self.pairs:
+                result.extend(pair.cubes)
+            if iris.cache.is_cacheable() and iris.cache.is_full_key() and \
+                    not iris.cache.force_raw and \
+                    not iris.cache.full_key_available():
+                iris.cache.save_full_cache(result)
         return result
 
     def merged(self, unique=False):
@@ -171,8 +184,13 @@ class _CubeFilterCollection(object):
             duplicate cubes are detected.
 
         """
-        return _CubeFilterCollection([pair.merged(unique) for pair in
-                                      self.pairs])
+        result = None
+        if iris.cache.is_cacheable() and iris.cache.full_key_available():
+            result = self
+        else:
+            result = _CubeFilterCollection([pair.merged(unique) for pair in
+                                            self.pairs])
+        return result
 
 
 class CubeList(list):

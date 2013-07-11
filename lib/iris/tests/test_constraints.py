@@ -21,6 +21,9 @@ Test the constrained cube loading mechanism.
 # import iris tests first so that some things can be initialised before importing anything else
 import iris.tests as tests
 
+import cPickle
+import cStringIO
+
 import iris
 import iris.tests.stock as stock
 
@@ -380,6 +383,383 @@ class TestBetween(tests.IrisTest):
         numbers = [1, 2, 3, 4, 5]
         results = [False, False, True, True, False]
         self.run_test(function, numbers, results)
+
+
+class TestEquality(tests.IrisTest):
+    def _constraint_int(self, cls):
+        a = cls(model=1)
+        b = cls(model=1)
+        c = cls(model=2)
+        d = cls(wibble=1)
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_int(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_int(constraint)
+
+    def _constraint_float(self, cls):
+        a = cls(model=1.1)
+        b = cls(model=1.1)
+        c = cls(model=2.2)
+        d = cls(wibble=1.1)
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_float(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_float(constraint)
+
+    def _constraint_string(self, cls):
+        a = cls(model='hello')
+        b = cls(model='hello')
+        c = cls(model=1)
+        d = cls(wibble='hello')
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_string(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_string(constraint)
+
+    def _constraint_list(self, cls):
+        a = cls(model=[10, 20])
+        b = cls(model=[20, 10])
+        c = cls(model=10)
+        d = cls(wibble=[10, 20])
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_list(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_list(constraint)
+
+    def _constraint_tuple(self, cls):
+        a = cls(model=(10, 20))
+        b = cls(model=(20, 10))
+        c = cls(model=10)
+        d = cls(wibble=(10, 20))
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_tuple(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_tuple(constraint)
+
+    def _constraint_set(self, cls):
+        a = cls(model=set([10, 20]))
+        b = cls(model=set([20, 10]))
+        c = cls(model=10)
+        d = cls(wibble=set([10, 20]))
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_set(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_set(constraint)
+
+    def _constraint_dictionary(self, cls):
+        a = cls(model={'one': 1, 'two': 2})
+        b = cls(model={'two': 2, 'one': 1})
+        c = cls(model=10)
+        d = cls(wibble={'one': 1, 'two': 2})
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+
+    def test_constraint_dictionary(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_dictionary(constraint)
+
+    def _constraint_lambda(self, cls):
+        common = lambda x: x > 10
+        a = cls(model=lambda x: x > 10)
+        b = cls(model=lambda x: x > 10)
+        c = cls(model=10)
+        d = cls(wibble=lambda x: x > 10)
+        e = cls(model=common)
+        f = cls(model=common)
+        g = cls(wibble=common)
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+        self.assertEqual(e, f)
+        self.assertNotEqual(e, g)
+
+    def test_constraint_lambda(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_lambda(constraint)
+
+    def _constraint_func(self, cls):
+        def func_1(arg):
+            return arg > 10
+
+        def func_2(arg):
+            return arg > 10
+
+        a = cls(model=func_1)
+        b = cls(model=func_2)
+        c = cls(model=10)
+        d = cls(wibble=func_2)
+        e = cls(model=func_1)
+        f = cls(wibble=func_1)
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotEqual(a, d)
+        self.assertEqual(a, e)
+        self.assertNotEqual(a, f)
+
+    def test_constraint_func(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._constraint_func(constraint)
+
+    def test_constraint_cube_func(self):
+        def func_1(cube):
+            return True
+
+        def func_2(cube):
+            return True
+
+        a = iris.Constraint(cube_func=func_1)
+        b = iris.Constraint(cube_func=func_2)
+        c = iris.Constraint(wibble=func_1)
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(a, c)
+        d = iris.Constraint(cube_func=func_1)
+        self.assertEqual(a, d)
+
+    def test_constraint_combination(self):
+        a = iris.Constraint(model=10)
+        b = iris.Constraint(model=20)
+        c = iris.Constraint(model=30)
+        d = iris.Constraint(model=10)
+        e = iris.Constraint(model=20)
+        f = iris.Constraint(model=30)
+        c1 = a & b
+        c2 = b & a
+        c3 = d & e
+        self.assertNotEqual(c1, c2)
+        self.assertEqual(c1, c3)
+        c4 = a & b & c
+        c5 = b & a & c
+        c6 = a & c & b
+        c7 = d & e & f
+        self.assertNotEqual(c4, c5)
+        self.assertNotEqual(c4, c6)
+        self.assertEqual(c4, c7)
+
+
+class TestPickle(tests.IrisTest):
+    # It's not valid to pickle a function or lambda.
+
+    def _pickle(self, cls, value):
+        buf = cStringIO.StringIO()
+        expected = cls(model=value)
+        cPickle.dump(expected, buf, cPickle.HIGHEST_PROTOCOL)
+        buf.seek(0)
+        actual = cPickle.load(buf)
+        self.assertEqual(expected, actual)
+
+    def test_pickle_int(self):
+        self._pickle(iris.Constraint, 10)
+        self._pickle(iris.AttributeConstraint, 10)
+
+    def test_pickle_float(self):
+        self._pickle(iris.Constraint, 1.1)
+        self._pickle(iris.AttributeConstraint, 1.1)
+
+    def test_pickle_string(self):
+        self._pickle(iris.Constraint, 'branston')
+        self._pickle(iris.AttributeConstraint, 'chutney')
+
+    def test_pickle_list(self):
+        self._pickle(iris.Constraint, range(10))
+        self._pickle(iris.AttributeConstraint, range(10))
+
+    def test_pickle_tuple(self):
+        t = tuple(range(10))
+        self._pickle(iris.Constraint, t)
+        self._pickle(iris.AttributeConstraint, t)
+
+    def test_pickle_set(self):
+        s = set(range(10))
+        self._pickle(iris.Constraint, s)
+        self._pickle(iris.AttributeConstraint, s)
+
+    def test_pickle_dictionary(self):
+        d = {'one': 1, 'two': 2, 'three': 3}
+        self._pickle(iris.Constraint, d)
+        self._pickle(iris.AttributeConstraint, d)
+
+    def test_pickle_combination(self):
+        a = iris.Constraint(a=1)
+        b = iris.Constraint(b=2)
+        c = iris.AttributeConstraint(c=3)
+        expected = a & b & c
+        buf = cStringIO.StringIO()
+        cPickle.dump(expected, buf, cPickle.HIGHEST_PROTOCOL)
+        buf.seek(0)
+        actual = cPickle.load(buf)
+        self.assertEqual(expected, actual)
+
+
+class TestHash(tests.IrisTest):
+    def _hash(self, cls, v1, v2, compare):
+        a = cls(model=v1, depth=v1)
+        b = cls(model=v2, depth=v2)
+        compare(hash(a), hash(b))
+
+    def test_hash_int(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, 10, 10, self.assertEqual)
+            self._hash(constraint, 10, 20, self.assertNotEqual)
+
+    def test_hash_float(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, 1.1, 1.1, self.assertEqual)
+            self._hash(constraint, 1.1, 2.2, self.assertNotEqual)
+
+    def test_hash_string(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, 'hello', 'hello', self.assertEqual)
+            self._hash(constraint, 'hello', 'goodbye', self.assertNotEqual)
+
+    def test_hash_list(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, range(10), range(10), self.assertEqual)
+            self._hash(constraint, range(10), range(5), self.assertNotEqual)
+
+    def test_hash_tuple(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, tuple(range(10)), tuple(range(10)),
+                       self.assertEqual)
+            self._hash(constraint, tuple(range(10)), tuple(range(5)),
+                       self.assertNotEqual)
+
+    def test_hash_set(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, set(range(10)), set(range(10)),
+                       self.assertEqual)
+            self._hash(constraint, set(range(10)), set(range(5)),
+                       self.assertNotEqual)
+
+    def test_hash_dictionary(self):
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, {'one': 1, 'two': 2},
+                       {'two': 2, 'one': 1}, self.assertEqual)
+            self._hash(constraint, {'one': 1, 'two': 2},
+                       {'one': 'wibble', 'two': 'wobble'}, self.assertEqual)
+            self._hash(constraint, {'one': 1, 'two': 2},
+                       {'one': 1, 'too': 2}, self.assertNotEqual)
+
+    def test_hash_lambda(self):
+        common = lambda x: x > 1
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, lambda x: x > 1,
+                       lambda x: x > 1, self.assertNotEqual)
+            self._hash(constraint, common, common, self.assertEqual)
+
+    def test_hash_func(self):
+        def func_1(arg):
+            return arg > 10
+
+        def func_2(arg):
+            return arg > 10
+
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._hash(constraint, func_1, func_2, self.assertNotEqual)
+            self._hash(constraint, func_1, func_1, self.assertEqual)
+
+    def test_hash_cube_func(self):
+        def func_1(cube):
+            return True
+
+        def func_2(cube):
+            return True
+
+        a = iris.Constraint(cube_func=func_1)
+        b = iris.Constraint(cube_func=func_2)
+        c = iris.Constraint(cube_func=func_1)
+        self.assertNotEqual(hash(a), hash(b))
+        self.assertEqual(hash(a), hash(c))
+
+    def test_hash_combination(self):
+        a = iris.Constraint(model=10)
+        b = iris.Constraint(model=20)
+        c = iris.Constraint(model=10)
+        d = iris.Constraint(model=20)
+        c1 = a & b
+        c2 = b & a
+        c3 = c & d
+        self.assertNotEqual(hash(c1), hash(c2))
+        self.assertEqual(hash(c1), hash(c3))
+
+    def test_hash_lookup(self):
+        a = iris.Constraint(model=10)
+        b = iris.AttributeConstraint(model=10)
+        c = a & b
+        d = iris.Constraint(model=10)
+        e = iris.AttributeConstraint(model=10)
+        f = d & e
+        lookup = {a: 'Constraint',
+                  b: 'AttributeConstraint',
+                  c: 'ConstraintCombination'}
+        self.assertEqual(lookup[d], 'Constraint')
+        self.assertEqual(lookup[e], 'AttributeConstraint')
+        self.assertEqual(lookup[f], 'ConstraintCombination')
+
+
+class TestCallable(tests.IrisTest):
+    def _callable(self, cls):
+        def func(arg):
+            return True
+
+        a = cls(model=lambda x: x > 1)
+        b = cls(model=func)
+        c = cls(model=10)
+        d = cls(model=10, depth=func)
+        e = cls(model=10, depth=lambda x: x > 1, level=20)
+        self.assertTrue(a.callable())
+        self.assertTrue(b.callable())
+        self.assertFalse(c.callable())
+        self.assertTrue(d.callable())
+        self.assertTrue(e.callable())
+
+    def test_callable(self):
+        def func(arg):
+            return True
+
+        for constraint in [iris.Constraint, iris.AttributeConstraint]:
+            self._callable(constraint)
+        a = iris.Constraint(cube_func=None, model=10)
+        b = iris.Constraint(cube_func=func)
+        self.assertFalse(a.callable())
+        self.assertTrue(b.callable())
+
+    def test_callable_combination(self):
+        def func(arg):
+            return True
+
+        a = iris.Constraint(model=10)
+        b = iris.Constraint(model=lambda x: x > 1)
+        c = iris.Constraint(model=20)
+        d = iris.Constraint(model=func)
+        c1 = a & b
+        c2 = a & c
+        c3 = a & d
+        c4 = a & c & d
+        c5 = a & b & c
+        self.assertTrue(c1.callable())
+        self.assertFalse(c2.callable())
+        self.assertTrue(c3.callable())
+        self.assertTrue(c4.callable())
+        self.assertTrue(c5.callable())
 
 
 if __name__ == "__main__":

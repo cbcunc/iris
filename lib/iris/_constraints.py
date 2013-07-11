@@ -18,7 +18,9 @@
 Provides objects for building up expressions useful for pattern matching.
 
 """
+
 import collections
+import hashlib
 import operator
 
 import numpy as np
@@ -105,23 +107,28 @@ class Constraint(object):
         self._name = name
         self._cube_func = cube_func
 
-        self._coord_values = coord_values.copy()
-        self._coord_values.update(kwargs)
+        _coord_values = coord_values.copy()
+        _coord_values.update(kwargs)
 
         self._coord_constraints = []
-        for coord_name, coord_thing in self._coord_values.items():
+        for coord_name in sorted(_coord_values):
+            coord_value = _coord_values[coord_name]
             self._coord_constraints.append(_CoordConstraint(coord_name,
-                                                            coord_thing))
+                                                            coord_value))
 
     def __repr__(self):
         args = []
         if self._name:
-            args.append(('name', self._name))
+            args.append('name={!r}'.format(self._name))
         if self._cube_func:
-            args.append(('cube_func', self._cube_func))
-        if self._coord_values:
-            args.append(('coord_values', self._coord_values))
-        return 'Constraint(%s)' % ', '.join('%s=%r' % (k, v) for k, v in args)
+            args.append('cube_func={!r}'.format(self._cube_func))
+        if self._coord_constraints:
+            msg = []
+            for constraint in self._coord_constraints:
+                msg.append('{!r}: {!r}'.format(constraint.coord_name,
+                                               constraint.coord_value))
+            args.append('coord_values={%s}' % ', '.join(msg))
+        return 'Constraint(%s)' % ', '.join(args)
 
     def _coordless_match(self, cube):
         """
@@ -173,6 +180,32 @@ class Constraint(object):
     def __rand__(self, other):
         return ConstraintCombination(other, self, operator.__and__)
 
+    def __eq__(self, other):
+        result = NotImplemented
+        if isinstance(other, Constraint):
+            result = self._name == other._name and \
+                self._cube_func == other._cube_func and \
+                self._coord_constraints == other._coord_constraints
+        return result
+
+    def __ne__(self, other):
+        result = self == other
+        if result != NotImplemented:
+            result = not result
+        return result
+
+    def __hash__(self):
+        return hash(hashlib.sha512(repr(self)).hexdigest())
+
+    def callable(self):
+        result = callable(self._cube_func)
+        if not result:
+            for constraint in self._coord_constraints:
+                if constraint.callable():
+                    result = True
+                    break
+        return result
+
 
 class ConstraintCombination(Constraint):
     """Represents the binary combination of two Constraint instances."""
@@ -204,10 +237,26 @@ class ConstraintCombination(Constraint):
         return self.operator(self.lhs._CIM_extract(cube),
                              self.rhs._CIM_extract(cube))
 
+    def __eq__(self, other):
+        result = NotImplemented
+        if isinstance(other, ConstraintCombination):
+            result = self.operator == other.operator and \
+                self.lhs == other.lhs and self.rhs == other.rhs
+        return result
+
+    def __ne__(self, other):
+        result = self == other
+        if result != NotImplemented:
+            result = not result
+        return result
+
+    def callable(self):
+        return self.lhs.callable() or self.rhs.callable()
+
 
 class _CoordConstraint(object):
     """Represents the atomic elements which might build up a Constraint."""
-    def __init__(self, coord_name, coord_thing):
+    def __init__(self, coord_name, coord_value):
         """
         Create a coordinate constraint given the coordinate name and a
         thing to compare it with.
@@ -216,16 +265,32 @@ class _CoordConstraint(object):
 
         * coord_name  -  string
             The name of the coordinate to constrain
-        * coord_thing
+        * coord_value
             The object to compare
 
         """
         self.coord_name = coord_name
-        self._coord_thing = coord_thing
+        if isinstance(coord_value, collections.Iterable) and \
+                not isinstance(coord_value, basestring):
+            coord_value = tuple(sorted(coord_value))
+        self.coord_value = coord_value
 
     def __repr__(self):
         return '_CoordConstraint(%r, %r)' % (self.coord_name,
-                                             self._coord_thing)
+                                             self.coord_value)
+
+    def __eq__(self, other):
+        result = NotImplemented
+        if isinstance(other, _CoordConstraint):
+            result = self.coord_name == other.coord_name and \
+                self.coord_value == other.coord_value
+        return result
+
+    def __ne__(self, other):
+        result = self == other
+        if result != NotImplemented:
+            result = not result
+        return result
 
     def extract(self, cube):
         """
@@ -245,24 +310,24 @@ class _CoordConstraint(object):
             raise iris.exceptions.CoordinateMultiDimError(msg)
 
         try_quick = False
-        if callable(self._coord_thing):
-            call_func = self._coord_thing
-        elif (isinstance(self._coord_thing, collections.Iterable) and
-              not isinstance(self._coord_thing, basestring)):
-            call_func = lambda cell: cell in list(self._coord_thing)
+        if callable(self.coord_value):
+            call_func = self.coord_value
+        elif (isinstance(self.coord_value, collections.Iterable) and
+              not isinstance(self.coord_value, basestring)):
+            call_func = lambda cell: cell in list(self.coord_value)
         else:
-            call_func = lambda c: c == self._coord_thing
+            call_func = lambda c: c == self.coord_value
             try_quick = isinstance(coord, iris.coords.DimCoord)
 
         # Simple, yet dramatic, optimisation for the monotonic case.
         if try_quick:
             try:
-                i = coord.nearest_neighbour_index(self._coord_thing)
+                i = coord.nearest_neighbour_index(self.coord_value)
             except TypeError:
                 try_quick = False
         if try_quick:
             r = np.zeros(coord.shape, dtype=np.bool)
-            if coord.cell(i) == self._coord_thing:
+            if coord.cell(i) == self.coord_value:
                 r[i] = True
         else:
             r = np.array([call_func(cell) for cell in coord.cells()])
@@ -271,6 +336,9 @@ class _CoordConstraint(object):
         elif not all(r):
             cube_cim.all_false()
         return cube_cim
+
+    def callable(self):
+        return callable(self.coord_value)
 
 
 class _ColumnIndexManager(object):
@@ -428,7 +496,12 @@ class AttributeConstraint(Constraint):
         .. note:: Attribute constraint names are case sensitive.
 
         """
-        self._attributes = attributes
+        self._attributes = {}
+        for name, value in attributes.iteritems():
+            if isinstance(value, collections.Iterable) and \
+                    not isinstance(value, basestring):
+                value = tuple(sorted(value))
+            self._attributes[name] = value
         Constraint.__init__(self, cube_func=self._cube_func)
 
     def _cube_func(self, cube):
@@ -451,5 +524,38 @@ class AttributeConstraint(Constraint):
                 break
         return match
 
+    def __getstate__(self):
+        return {k: v for k, v in self._attributes.items()}
+
+    def __setstate__(self, state):
+        self._attributes = {k: v for k, v in state.items()}
+
     def __repr__(self):
-        return 'AttributeConstraint(%r)' % self._attributes
+        msg = ''
+        if self._attributes:
+            attrs = self._attributes
+            msg = ['{}={!r}'.format(k, attrs[k]) for k in sorted(attrs)]
+        return 'AttributeConstraint({})'.format(', '.join(msg))
+
+    def __eq__(self, other):
+        result = NotImplemented
+        if isinstance(other, AttributeConstraint):
+            result = self._attributes == other._attributes
+        return result
+
+    def __ne__(self, other):
+        result = self == other
+        if result != NotImplemented:
+            result = not result
+        return result
+
+    def __hash__(self):
+        return hash(hashlib.sha512(repr(self)).hexdigest())
+
+    def callable(self):
+        result = False
+        for item in self._attributes.itervalues():
+            if callable(item):
+                result = True
+                break
+        return result

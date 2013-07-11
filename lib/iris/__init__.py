@@ -106,6 +106,7 @@ import iris.config
 import iris.cube
 import iris._constraints
 import iris.fileformats
+import iris.fileformats._cache
 import iris.io
 
 
@@ -123,6 +124,7 @@ if iris.config.IMPORT_LOGGER:
     logging.getLogger(iris.config.IMPORT_LOGGER).info('iris %s' % __version__)
 
 
+Cache = iris.fileformats._cache.Cache
 Constraint = iris._constraints.Constraint
 AttributeConstraint = iris._constraints.AttributeConstraint
 
@@ -137,6 +139,10 @@ except ImportError:
     pass
 else:
     _update(site_configuration)
+
+
+#cache = Cache(active=True, sync=True, index_base='/data/local/itwl/cache')
+cache = Cache()
 
 
 def _generate_cubes(uris, callback):
@@ -195,6 +201,7 @@ def load(uris, constraints=None, callback=None):
         An :class:`iris.cube.CubeList`.
 
     """
+    cache.constraints = constraints
     return _load_collection(uris, constraints, callback).merged().cubes()
 
 
@@ -225,6 +232,7 @@ def load_cube(uris, constraint=None, callback=None):
     if len(constraints) != 1:
         raise ValueError('only a single constraint is allowed')
 
+    cache.constraints = constraints
     cubes = _load_collection(uris, constraints, callback).merged().cubes()
 
     if len(cubes) != 1:
@@ -257,6 +265,7 @@ def load_cubes(uris, constraints=None, callback=None):
 
     """
     # Merge the incoming cubes
+    cache.constraints = constraints
     collection = _load_collection(uris, constraints, callback).merged()
 
     # Make sure we have exactly one merged cube per constraint
@@ -299,6 +308,8 @@ def load_raw(uris, constraints=None, callback=None):
         An :class:`iris.cube.CubeList`.
 
     """
+    cache.constraints = constraints
+    cache.force_raw = True
     return _load_collection(uris, constraints, callback).cubes()
 
 

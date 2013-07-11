@@ -158,24 +158,42 @@ def load_files(filenames, callback):
     filenames = [os.path.expanduser(fn[2:] if fn.startswith('//') else fn) for fn in filenames]
     
     # Try to expand all filenames as globs       
-    glob_expanded = {fn : sorted(glob.glob(fn)) for fn in filenames}
+    glob_expanded = {fn : sorted(os.path.abspath(gn) for gn in glob.glob(fn)) \
+                         for fn in filenames}
     
     # If any of the filenames or globs expanded to an empty list then raise an error
     if not all(glob_expanded.viewvalues()):
         raise IOError("One or more of the files specified did not exist %s." % 
         ["%s expanded to %s" % (pattern, expanded if expanded else "empty") for pattern, expanded in glob_expanded.iteritems()])
+
+    expanded_filenames = sum([x for x in glob_expanded.viewvalues()], [])
+    iris.cache.fname = expanded_filenames
+    iris.cache.callback = callback
     
     # Create default dict mapping iris format handler to its associated filenames
     handler_map = collections.defaultdict(list)
-    for fn in sum([x for x in glob_expanded.viewvalues()], []):
+    for fn in expanded_filenames:
         with open(fn) as fh:         
             handling_format_spec = iris.fileformats.FORMAT_AGENT.get_spec(os.path.basename(fn), fh)
             handler_map[handling_format_spec].append(fn)
     
     # Call each iris format handler with the approriate filenames
-    for handling_format_spec, fnames in handler_map.iteritems():
-        for cube in handling_format_spec.handler(fnames, callback):
-            yield cube
+    if iris.cache.is_cacheable():
+        if iris.cache.full_key_available():
+            for cube in iris.cache.load_full_cache():
+                yield cube
+        elif iris.cache.raw_key_available():
+            for cube in iris.cache.load_raw_cache():
+                yield cube
+        else:
+            for handling_format_spec, fnames in handler_map.iteritems():
+                cubes = handling_format_spec.handler(fnames, callback)
+                for cube in iris.cache.save_raw_cache(cubes):
+                    yield cube
+    else:       
+        for handling_format_spec, fnames in handler_map.iteritems():
+            for cube in handling_format_spec.handler(fnames, callback):
+                yield cube
 
 
 def load_http(urls, callback):
