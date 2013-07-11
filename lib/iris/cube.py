@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 # (C) British Crown Copyright 2010 - 2013, Met Office
 #
 # This file is part of Iris.
@@ -2193,7 +2194,7 @@ bound=(1994-12-01 00:00:00, 1998-12-01 00:00:00)
 
     # END ANALYSIS ROUTINES
 
-    def collapsed(self, coords, aggregator, **kwargs):
+    def collapsed(self, coords, aggregator, wibble=False, **kwargs):
         """
         Collapse one or more dimensions over the cube given the coordinate/s
         and an aggregation.
@@ -2316,7 +2317,11 @@ over month, year
             kwargs["weights"] = np.transpose(
                 weights, untouched_dims + dims_to_collapse).reshape(new_shape)
 
+        if wibble:
+            kwargs['coords'] = coords
+
         data_result = aggregator.aggregate(unrolled_data, axis=-1, **kwargs)
+	kwargs.pop('coords', coords)
         aggregator.update_metadata(collapsed_cube, coords, axis=-1, **kwargs)
         result = aggregator.post_process(collapsed_cube, data_result, **kwargs)
         return result

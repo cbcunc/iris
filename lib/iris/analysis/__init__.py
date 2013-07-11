@@ -1,3 +1,4 @@
+# -*- coding: iso-8859-1 -*-
 # (C) British Crown Copyright 2010 - 2013, Met Office
 #
 # This file is part of Iris.
@@ -34,6 +35,11 @@ from copy import deepcopy
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
+
+from scipy.interpolate import interp1d
+from scipy import signal
+
+import matplotlib.pyplot as plt
 
 import iris.coords
 
@@ -481,6 +487,47 @@ def _sum(array, **kwargs):
     return rvalue
 
 
+def _peak(array, axis, coords, **kwargs):
+    return_shape = array.shape[0:array.ndim - 1]
+    global_values = np.zeros(np.prod(return_shape))
+    coord_points = sorted(coords[0].points)
+    length = len(coord_points)
+    npoints = 1000000
+    points = np.linspace(coord_points[0], coord_points[length-1], npoints)
+
+    data = array.flatten()
+    lower_index = next_index = 0
+
+    while lower_index < np.prod(array.shape):
+	column = data.take(np.arange(lower_index, (lower_index+length), dtype=int))
+	lower_index += length
+
+	if all(point == column[0] for point in column) == True or length <= 2: 
+	    kind = 'linear'
+	elif length == 3:
+	    kind = 'quadratic'
+	else:
+	    kind = 'cubic'
+
+	f = interp1d(coord_points, column, kind=kind)
+	curve = f(points)
+
+	peak = signal.argrelmax(curve)[0]
+
+	if any(peak):
+	    #x = [points[value] for value in peak]
+	    y = [curve[value] for value in peak]
+	    ind = y.index(max(y))
+	    global_values[next_index] = y[ind]
+	else:
+	    raise RuntimeError('No peak in fitted curve.')
+	    #global_values[next_index] = None
+
+	next_index += 1
+
+    return global_values.reshape(return_shape)
+
+
 #
 # Common partial Aggregation class constructors.
 #
@@ -744,6 +791,10 @@ For example, to obtain the biased variance::
     result = cube.collapsed(coord_to_collapse, iris.analysis.VARIANCE, ddof=0)
 
 """
+
+PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
+		  'peak',
+		  _peak)
 
 
 class _Groupby(object):
