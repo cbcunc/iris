@@ -490,24 +490,31 @@ def _sum(array, **kwargs):
 def _peak(array, axis, coords, **kwargs):
     return_shape = array.shape[0:array.ndim - 1]
     global_values = np.zeros(np.prod(return_shape))
+    
     coord_points = sorted(coords[0].points)
     length = len(coord_points)
+
+    if length == 1:
+	return array.reshape(return_shape)
+    elif length == 2:
+	kind = 'linear'
+    elif length == 3:
+	kind = 'quadratic'
+    else:
+	kind = 'cubic'
+
     npoints = 1000000
     points = np.linspace(coord_points[0], coord_points[length-1], npoints)
 
     data = array.flatten()
     lower_index = next_index = 0
 
-    while lower_index < np.prod(array.shape):
-	column = data.take(np.arange(lower_index, (lower_index+length), dtype=int))
+    while lower_index < data.size:
+	column = data[lower_index:(lower_index+length)]
 	lower_index += length
 
-	if all(point == column[0] for point in column) == True or length <= 2: 
+	if all(point == column[0] for point in column) == True:
 	    kind = 'linear'
-	elif length == 3:
-	    kind = 'quadratic'
-	else:
-	    kind = 'cubic'
 
 	f = interp1d(coord_points, column, kind=kind)
 	curve = f(points)
@@ -517,8 +524,8 @@ def _peak(array, axis, coords, **kwargs):
 	if any(peak):
 	    #x = [points[value] for value in peak]
 	    y = [curve[value] for value in peak]
-	    ind = y.index(max(y))
-	    global_values[next_index] = y[ind]
+	    #ind = y.index(max(y))
+	    global_values[next_index] = max(y)
 	else:
 	    raise RuntimeError('No peak in fitted curve.')
 	    #global_values[next_index] = None
