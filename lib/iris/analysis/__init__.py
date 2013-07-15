@@ -488,51 +488,55 @@ def _sum(array, **kwargs):
 
 
 def _peak(array, axis, coords, **kwargs):
-    return_shape = array.shape[0:array.ndim - 1]
-    global_values = np.zeros(np.prod(return_shape))
-    
-    coord_points = sorted(coords[0].points)
-    length = len(coord_points)
+    new_coords = list(collections.OrderedDict.fromkeys(coords))
+    coord_points = [sorted(coord.points) for coord in new_coords]
+    coord_lengths = [len(coord) for coord in coord_points]
+    array_shape = array.shape[0:array.ndim - 1]
 
-    if length == 1:
-	return array.reshape(return_shape)
-    elif length == 2:
-	kind = 'linear'
-    elif length == 3:
-	kind = 'quadratic'
-    else:
-	kind = 'cubic'
+    for coord in coord_points:
+	length = coord_lengths[0]
+	del coord_lengths[0]
+	return_shape = array_shape + tuple(coord_lengths[::-1])
+	global_values = np.zeros(np.prod(return_shape))
 
-    npoints = 1000000
-    points = np.linspace(coord_points[0], coord_points[length-1], npoints)
-
-    data = array.flatten()
-    lower_index = next_index = 0
-
-    while lower_index < data.size:
-	column = data[lower_index:(lower_index+length)]
-	lower_index += length
-
-	if all(point == column[0] for point in column) == True:
+	if length == 1:
+	    array.reshape(return_shape)
+	    continue
+	elif length == 2:
 	    kind = 'linear'
-
-	f = interp1d(coord_points, column, kind=kind)
-	curve = f(points)
-
-	peak = signal.argrelmax(curve)[0]
-
-	if any(peak):
-	    #x = [points[value] for value in peak]
-	    y = [curve[value] for value in peak]
-	    #ind = y.index(max(y))
-	    global_values[next_index] = max(y)
+	elif length == 3:
+	    kind = 'quadratic'
 	else:
-	    raise RuntimeError('No peak in fitted curve.')
-	    #global_values[next_index] = None
+	    kind = 'cubic'
 
-	next_index += 1
+	npoints = 1000000
+	points = np.linspace(coord[0], coord[length - 1], npoints)
 
-    return global_values.reshape(return_shape)
+	data = array.flatten()
+	lower_index = next_index = 0
+
+	while lower_index < data.size:
+	    column = data[lower_index:(lower_index + length)]
+	    lower_index += length
+
+	    if all(point == column[0] for point in column) == True:
+		kind = 'linear'
+
+	    f = interp1d(coord, column, kind=kind)
+	    curve = f(points)
+
+	    peak = signal.argrelmax(curve)[0]
+
+	    if any(peak):
+		y = [curve[value] for value in peak]
+		global_values[next_index] = max(y)
+	    else:
+		global_values[next_index] = max(column)
+		#raise RuntimeError('No peak in fitted curve.')
+
+	    next_index += 1
+	array = global_values.reshape(return_shape)
+    return array
 
 
 #
