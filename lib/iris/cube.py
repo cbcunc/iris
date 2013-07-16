@@ -2319,6 +2319,7 @@ over month, year
 
         if wibble:
             kwargs['coords'] = coords
+	    kwargs['dims'] = [self.coord_dims(coord)[0] for coord in coords]
 
         data_result = aggregator.aggregate(unrolled_data, axis=-1, **kwargs)
 	kwargs.pop('coords', coords)

@@ -38,10 +38,11 @@ import scipy.stats.mstats
 
 from scipy.interpolate import interp1d
 from scipy import signal
-
+from operator import itemgetter
 import matplotlib.pyplot as plt
 
 import iris.coords
+
 
 
 __all__ = ('COUNT', 'GMEAN', 'HMEAN', 'MAX', 'MEAN', 'MEDIAN', 'MIN',
@@ -487,9 +488,10 @@ def _sum(array, **kwargs):
     return rvalue
 
 
-def _peak(array, axis, coords, **kwargs):
-    new_coords = list(collections.OrderedDict.fromkeys(coords))
-    coord_points = [sorted(coord.points) for coord in new_coords]
+def _peak(array, axis, coords, dims, **kwargs):
+    new_coords = list(collections.OrderedDict.fromkeys(zip(coords, dims)))
+    sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
+    coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
     array_shape = array.shape[0:array.ndim - 1]
 
@@ -500,7 +502,7 @@ def _peak(array, axis, coords, **kwargs):
 	global_values = np.zeros(np.prod(return_shape))
 
 	if length == 1:
-	    array.reshape(return_shape)
+	    array = array.reshape(return_shape)
 	    continue
 	elif length == 2:
 	    kind = 'linear'
