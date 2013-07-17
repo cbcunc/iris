@@ -520,10 +520,13 @@ def _peak(array, axis, coords, dims, **kwargs):
 	while lower_index < data.size:
 	    column = data[lower_index:(lower_index + length)]
 	    lower_index += length
+	    masked = False
 
-	    fill_value = None
-	    fill_value = column.fill_value
-	    column = column.filled(np.nan)
+	    if np.ma.isMaskedArray(column):
+		masked = True
+		fill_value = None
+		fill_value = column.fill_value
+		column = column.filled(np.nan)
 
 	    if all(point == column[0] for point in column) == True:
 		kind = 'linear'
@@ -542,9 +545,10 @@ def _peak(array, axis, coords, dims, **kwargs):
 
 	    next_index += 1
 	array = global_values.reshape(return_shape)
-	mask = np.isnan(array)
-	if np.any(mask):
-	    array = np.ma.MaskedArray(array, mask, fill_value=fill_value)
+	if masked:
+	    mask = np.isnan(array)
+	    if np.any(mask):
+		array = np.ma.MaskedArray(array, mask, fill_value=fill_value)
     return array
 
 
