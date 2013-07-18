@@ -95,8 +95,6 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	#result will be different if _peak changed to raise an error if no fitted peak found, instead 
-	#of taking the maximum value in the column
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([1], dtype=np.float32))
 
@@ -106,8 +104,6 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	#result will be different if _peak changed to raise an error if no fitted peak found, instead 
-	#of taking the maximum value in the column
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4], dtype=np.float32))
 
@@ -121,42 +117,33 @@ class TestPeakAggregator(tests.IrisTest):
 
 	cube.data[2] = np.nan
 
-	#result will be different if _peak changed to remove nans and interpolate the data, 
-	#instead of taking the maximum value in the column
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 	
 	#only nans in column
 	cube.data[:] = np.nan
 
-	#result will be different if _peak changed to remove nans and interpolate the data, 
-	#instead of taking the maximum value in the column
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([np.nan], dtype=np.float32))
 
     def test_peak_with_mask(self):
 	#single value in column masked
 	latitude = iris.coords.DimCoord(range(0, 4, 1), standard_name='latitude', units='degrees')
-	cube = iris.cube.Cube(ma.array([1, 2, 3, 1], dtype=np.float32), 
+	cube = iris.cube.Cube(ma.array([1, 2, 3, 2], dtype=np.float32), 
 			      standard_name='air_temperature',
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
 	cube.data[2] = ma.masked
 
-	#result will be different if _peak changed to remove nans and interpolate the data, 
-	#instead of taking the maximum value in the column
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 
 	#whole column masked
-	#cube.data[:] = ma.masked
+	cube.data[:] = ma.masked
 
-	#result will be different if _peak changed to remove nans and interpolate the data, 
-	#instead of taking the maximum value in the column
-	#collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
-	#masked_array = ma.array(ma.masked)
-	#print collapsed_cube.data, masked_array
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	masked_array = ma.array(ma.masked)
 	#self.assertMaskedArrayAlmostEqual(collapsed_cube.data, masked_array)
 
 	#latitude = iris.coords.DimCoord(range(0, 2, 1), standard_name='latitude', units='degrees')
@@ -168,13 +155,33 @@ class TestPeakAggregator(tests.IrisTest):
 	#cube.add_dim_coord(longitude, 1)
 
 	#cube.data[:] = ma.masked
-
 	#collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+
 	#masked_array = ma.array([np.nan, np.nan], dtype=np.float32)
 	#masked_array[:] = ma.masked
-	#print 'collapsed = ', collapsed_cube.data.data
-	#print 'masked = ', masked_array.data
+
 	#self.assertMaskedArrayAlmostEqual(collapsed_cube.data, masked_array)
+	np.testing.assert_equal(True, ma.allequal(collapsed_cube.data, masked_array))
+
+    def test_peak_with_nan_and_mask(self):
+	#single nan in column with single value masked
+	latitude = iris.coords.DimCoord(range(0, 4, 1), standard_name='latitude', units='degrees')
+	cube = iris.cube.Cube(ma.array([1, 2, 3, 1], dtype=np.float32), 
+			      standard_name='air_temperature', 
+			      units='kelvin')
+	cube.add_dim_coord(latitude, 0)
+
+	cube.data[2] = np.nan
+	cube.data[3] = ma.masked
+
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
+	
+	#only nans in column where values not masked
+	cube.data[0:2] = np.nan
+
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([np.nan], dtype=np.float32))
 
 if __name__ == "__main__":
     tests.main()

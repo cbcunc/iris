@@ -516,14 +516,24 @@ def _peak(array, axis, coords, dims, **kwargs):
 
 	data = array.flatten()
 	lower_index = next_index = 0
+	masked = False
+	nan_values = []
 
 	while lower_index < data.size:
 	    column = data[lower_index:(lower_index + length)]
 	    lower_index += length
-	    masked = False
 
 	    if np.ma.isMaskedArray(column):
 		masked = True
+		num_masked = np.ma.count_masked(column)
+		num_nans = np.sum(np.isnan(column))
+
+		if column.size == num_masked + num_nans:
+		    global_values[next_index] = np.nan
+		    nan_values.append(next_index)
+		    next_index += 1
+		    continue
+
 		fill_value = None
 		fill_value = column.fill_value
 		column = column.filled(np.nan)
@@ -540,15 +550,20 @@ def _peak(array, axis, coords, dims, **kwargs):
 		y = [curve[value] for value in peak]
 		global_values[next_index] = max(y)
 	    else:
-		global_values[next_index] = max(column)
-		#raise RuntimeError('No peak in fitted curve.')
+		global_values[next_index] = np.nanmax(column)
 
 	    next_index += 1
-	array = global_values.reshape(return_shape)
+
 	if masked:
-	    mask = np.isnan(array)
+	    mask = np.isnan(global_values)
+	    
+	    for value in nan_values:
+		mask[value] = False
+
 	    if np.any(mask):
-		array = np.ma.MaskedArray(array, mask, fill_value=fill_value)
+		global_values = np.ma.MaskedArray(global_values, mask, fill_value=fill_value)
+
+	array = global_values.reshape(return_shape)
     return array
 
 
