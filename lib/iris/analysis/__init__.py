@@ -31,19 +31,18 @@ from __future__ import division
 
 import collections
 from copy import deepcopy
-
+import iris.coords
+from operator import itemgetter
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
-
-from scipy.interpolate import interp1d
+from scipy.interpolate import splev, splrep, sproot
 from scipy import signal
-from operator import itemgetter
+
+#a copy of the splder source code from scipy version 0.13.0, which hasn't been released yet
+from scipy_splder import splder
+
 import matplotlib.pyplot as plt
-
-import iris.coords
-
-
 
 __all__ = ('COUNT', 'GMEAN', 'HMEAN', 'MAX', 'MEAN', 'MEDIAN', 'MIN',
            'PERCENTILE', 'PROPORTION', 'RMS', 'STD_DEV', 'SUM', 'VARIANCE',
@@ -495,6 +494,53 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_lengths = [len(coord) for coord in coord_points]
     array_shape = array.shape[0:array.ndim - 1]
 
+    # Ed's broken code starts....
+
+    #def interp_method(coord):
+	#length = coord.points.size()
+	#if length == 1:
+	    #kind = None
+	#elif length == 2:
+	    #kind = 'linear'
+	#elif length == 3:
+	    #kind = 'quadratic'
+	#else:
+	    #kind = 'cubic'
+
+	#return kind
+
+
+    #npoints = 1000000
+    #data = array.copy()
+    #for coord, dim in zip(coords, dims):
+	#points = np.linspace(coord.points[0], coord.points[-1], npoints)
+	#shape = list(data.shape)
+	#shape[dim] = 1
+	#ndindices = np.ndindex(*shape)
+	#for ndindex in ndindices:
+	    #ndindex[dim] = slice(None)
+	    #indices = tuple(ndindex)
+	    #column = array[indices]
+	    #kind = interp_method(coord)
+	    ## Check for all equal.
+	    #if np.all(column == column[0])
+		#kind = 'linear'
+	    #f = interp1d(coord.points, column, kind=kind)
+	    #curve = f(points)
+	    #peak = signal.argrelmax(curve)[0]
+	    #if any(peak):
+		#y = [curve[value] for value in peak]
+		#data[indices] = max(y)
+	    #else:
+		#data[indices] = np.nanmax(column)
+
+    #slices = [slice(None)] * data.ndim
+    #for dim in dims:
+	#slices[dim] = 0
+    #data = data[slices]
+
+    # Ed's code ends.
+
     for coord in coord_points:
 	length = coord_lengths[0]
 	del coord_lengths[0]
@@ -505,30 +551,33 @@ def _peak(array, axis, coords, dims, **kwargs):
 	    array = array.reshape(return_shape)
 	    continue
 	elif length == 2:
-	    kind = 'linear'
+	    k = 1
 	elif length == 3:
-	    kind = 'quadratic'
+	    k = 2
+	elif length == 4:
+	    k = 3
 	else:
-	    kind = 'cubic'
+	    k = 4
 
-	npoints = 1000000
+	npoints = length * 100
 	points = np.linspace(coord[0], coord[length - 1], npoints)
 
-	data = array.flatten()
+	data = array.flat
+	array_size = np.prod(array.shape)
 	lower_index = next_index = 0
 	masked = False
 	nan_values = []
 
-	while lower_index < data.size:
+	while lower_index < array_size:
 	    column = data[lower_index:(lower_index + length)]
 	    lower_index += length
 
 	    if np.ma.isMaskedArray(column):
 		masked = True
-		num_masked = np.ma.count_masked(column)
-		num_nans = np.sum(np.isnan(column))
 
-		if column.size == num_masked + num_nans:
+		if (not np.any(np.isfinite(column)) == True and 
+		    not np.any(np.isinf(column)) == True and 
+		    not np.ma.count(column) == 0):
 		    global_values[next_index] = np.nan
 		    nan_values.append(next_index)
 		    next_index += 1
@@ -539,24 +588,47 @@ def _peak(array, axis, coords, dims, **kwargs):
 		column = column.filled(np.nan)
 
 	    if all(point == column[0] for point in column) == True:
-		kind = 'linear'
+		k = 1
 
-	    f = interp1d(coord, column, kind=kind)
-	    curve = f(points)
+	    tck = splrep(coord, column, k=k)
+	    spline = splev(points, tck)
 
-	    peak = signal.argrelmax(curve)[0]
+	    if length >= 5:
+		der_tck = splder(tck)
+		roots = sproot(der_tck)
 
-	    if any(peak):
-		y = [curve[value] for value in peak]
-		global_values[next_index] = max(y)
+		if any(roots):
+		    y = []
+		    for root in roots:
+			index = (np.abs(points-root)).argmin()
+			if index == 0 or index == len(points) - 1:
+			    continue
+			if spline[index - 1] < spline[index] and spline[index + 1] < spline[index]:
+			    y.append(spline[index])
+		    if any(y):
+			global_values[next_index] = max(y)
+		    else:
+			global_values[next_index] = np.nanmax(column)
+		else:
+		    global_values[next_index] = np.nanmax(column)
 	    else:
-		global_values[next_index] = np.nanmax(column)
+		peak = signal.argrelmax(spline)[0]
+
+		if any(peak):
+		    y = [spline[value] for value in peak]
+		    global_values[next_index] = max(y)
+		else:
+		    global_values[next_index] = np.nanmax(column)
+
+	    #print global_values[next_index]
+	    #plt.plot(coord, column, 'x', points, spline)
+	    #plt.show()
 
 	    next_index += 1
 
 	if masked:
 	    mask = np.isnan(global_values)
-	    
+
 	    for value in nan_values:
 		mask[value] = False
 
