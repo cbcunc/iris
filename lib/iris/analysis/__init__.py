@@ -36,7 +36,7 @@ from operator import itemgetter
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
-from scipy.interpolate import splev, splrep, sproot
+from scipy.interpolate import splev, splrep, sproot, interp1d
 from scipy import signal
 
 #a copy of the splder source code from scipy version 0.13.0, which hasn't been released yet
@@ -494,53 +494,6 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_lengths = [len(coord) for coord in coord_points]
     array_shape = array.shape[0:array.ndim - 1]
 
-    # Ed's broken code starts....
-
-    #def interp_method(coord):
-	#length = coord.points.size()
-	#if length == 1:
-	    #kind = None
-	#elif length == 2:
-	    #kind = 'linear'
-	#elif length == 3:
-	    #kind = 'quadratic'
-	#else:
-	    #kind = 'cubic'
-
-	#return kind
-
-
-    #npoints = 1000000
-    #data = array.copy()
-    #for coord, dim in zip(coords, dims):
-	#points = np.linspace(coord.points[0], coord.points[-1], npoints)
-	#shape = list(data.shape)
-	#shape[dim] = 1
-	#ndindices = np.ndindex(*shape)
-	#for ndindex in ndindices:
-	    #ndindex[dim] = slice(None)
-	    #indices = tuple(ndindex)
-	    #column = array[indices]
-	    #kind = interp_method(coord)
-	    ## Check for all equal.
-	    #if np.all(column == column[0])
-		#kind = 'linear'
-	    #f = interp1d(coord.points, column, kind=kind)
-	    #curve = f(points)
-	    #peak = signal.argrelmax(curve)[0]
-	    #if any(peak):
-		#y = [curve[value] for value in peak]
-		#data[indices] = max(y)
-	    #else:
-		#data[indices] = np.nanmax(column)
-
-    #slices = [slice(None)] * data.ndim
-    #for dim in dims:
-	#slices[dim] = 0
-    #data = data[slices]
-
-    # Ed's code ends.
-
     for coord in coord_points:
 	length = coord_lengths[0]
 	del coord_lengths[0]
@@ -559,7 +512,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 	else:
 	    k = 4
 
-	npoints = length * 100
+	npoints = length * 10
 	points = np.linspace(coord[0], coord[length - 1], npoints)
 
 	data = array.flat
@@ -637,6 +590,105 @@ def _peak(array, axis, coords, dims, **kwargs):
 
 	array = global_values.reshape(return_shape)
     return array
+
+#def _peak(array, axis, **kwargs):
+    #def interp_order(column):
+	#length = column.size
+	#if length == 1:
+	    #k = None
+	#elif length == 2:
+	    #k = 1
+	#elif length == 3:
+	    #k = 2
+	#elif length == 4:
+	    #k = 3
+	#else:
+	    #k = 4
+
+	#return k
+
+    #data = array.astype('float32')
+    #masked = False
+    #nan_values = []
+    
+    #shape = list(data.shape)
+    #shape[data.ndim - 1] = 1
+    #ndindices = np.ndindex(*shape)
+
+    #for ndindex in ndindices:
+	#ndindex = list(ndindex)
+	#ndindex[data.ndim - 1] = slice(None)
+	#indices = tuple(ndindex)
+	#column = array[indices]
+
+	#if np.ma.isMaskedArray(column):
+	    #masked = True
+
+	    #if (not np.any(np.isfinite(column)) == True and 
+		#not np.any(np.isinf(column)) == True and 
+		#not np.ma.count(column) == 0):
+		#data[indices] = np.nan
+		#nan_values.append(indices)
+		#continue
+
+	    #fill_value = None
+	    #fill_value = column.fill_value
+	    #column = column.filled(np.nan)
+
+	#k = interp_order(column)
+
+	#if k == None:
+	    #break
+
+	## Check for all equal.
+	#if all(point == column[0] for point in column) == True:
+	    #k = 1
+	    
+	#tck = splrep(range(0, column.size, 1), column, k=k)
+	#points = np.linspace(0, column.size, column.size * 10)
+	#spline = splev(points, tck)
+
+	#if column.size >= 5:
+	    #der_tck = splder(tck)
+	    #roots = sproot(der_tck)
+
+	    #if any(roots):
+		#y = []
+		#for root in roots:
+		    #index = (np.abs(points-root)).argmin()
+		    #if index == 0 or index == len(points) - 1:
+			#continue
+		    #if spline[index - 1] < spline[index] and spline[index + 1] < spline[index]:
+			#y.append(spline[index])
+		#if any(y):
+		    #data[indices] = max(y)
+		#else:
+		    #data[indices] = np.nanmax(column)
+	    #else:
+		#data[indices] = np.nanmax(column)
+	#else:
+	    #peak = signal.argrelmax(spline)[0]
+
+	    #if any(peak):
+		#y = [spline[value] for value in peak]
+		#data[indices] = max(y)
+	    #else:
+		#data[indices] = np.nanmax(column)
+
+    #if masked:
+	#mask = np.isnan(data)
+
+	#for value in nan_values:
+	    #mask[value] = False
+
+	#if np.any(mask):
+	    #data = np.ma.MaskedArray(data, mask, fill_value=fill_value)
+
+    #slices = [slice(None)] * data.ndim
+    #slices[data.ndim - 1] = 0
+    #data = data[slices]
+
+    #return data
 
 
 #

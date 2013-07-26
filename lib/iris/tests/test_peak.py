@@ -79,13 +79,13 @@ class TestPeakAggregator(tests.IrisTest):
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([3, 6, 4], dtype=np.float32))
 
 	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4.025, 5.025, 6.025, 4.025], dtype=np.float32))
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4.02497, 5.02497, 6.02497, 4.02497], dtype=np.float32))
 
 	collapsed_cube = cube.collapsed(('longitude', 'latitude'), iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.025], dtype=np.float32))
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.02497], dtype=np.float32))
 
 	collapsed_cube = cube.collapsed(('latitude', 'longitude'), iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.025], dtype=np.float32))
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.02497], dtype=np.float32))
     
     def test_peak_without_peak_value(self):
 	#no peak in column - values equal
