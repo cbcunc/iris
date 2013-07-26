@@ -2194,7 +2194,7 @@ bound=(1994-12-01 00:00:00, 1998-12-01 00:00:00)
 
     # END ANALYSIS ROUTINES
 
-    def collapsed(self, coords, aggregator, wibble=False, **kwargs):
+    def collapsed(self, coords, aggregator, **kwargs):
         """
         Collapse one or more dimensions over the cube given the coordinate/s
         and an aggregation.
@@ -2317,7 +2317,7 @@ over month, year
             kwargs["weights"] = np.transpose(
                 weights, untouched_dims + dims_to_collapse).reshape(new_shape)
 
-        if wibble:
+        if aggregator.cell_method == 'peak':
             kwargs['coords'] = coords
 	    kwargs['dims'] = [self.coord_dims(coord)[0] for coord in coords]
 

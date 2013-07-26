@@ -488,21 +488,9 @@ def _sum(array, **kwargs):
 
 
 def _peak(array, axis, coords, dims, **kwargs):
-    new_coords = set(zip(coords,dims))
-    sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
-    coord_points = [sorted(coord[0].points) for coord in sorted_coords]
-    coord_lengths = [len(coord) for coord in coord_points]
-    array_shape = array.shape[0:array.ndim - 1]
-
-    for coord in coord_points:
-	length = coord_lengths[0]
-	del coord_lengths[0]
-	return_shape = array_shape + tuple(coord_lengths[::-1])
-	global_values = np.zeros(np.prod(return_shape))
-
+    def interp_order(length):
 	if length == 1:
-	    array = array.reshape(return_shape)
-	    continue
+	    k = None
 	elif length == 2:
 	    k = 1
 	elif length == 3:
@@ -512,8 +500,29 @@ def _peak(array, axis, coords, dims, **kwargs):
 	else:
 	    k = 4
 
-	npoints = length * 10
-	points = np.linspace(coord[0], coord[length - 1], npoints)
+	return k
+
+    new_coords = set(zip(coords, dims))
+    sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
+    coord_points = [sorted(coord[0].points) for coord in sorted_coords]
+    coord_lengths = [len(coord) for coord in coord_points]
+    array_shape = array.shape[0:array.ndim - 1]
+    coord_index = -1
+
+    for coord in coord_points:
+	coord_index += 1
+	length = coord_lengths[coord_index]
+	return_shape = array_shape + tuple(coord_lengths[:coord_index:-1])
+	global_values = np.zeros(np.prod(return_shape))
+
+	k = interp_order(length)
+
+	if k == None:
+	    array = array.reshape(return_shape)
+	    continue
+
+	npoints = length * 100
+	points = np.linspace(coord[0], coord[-1], npoints)
 
 	data = array.flat
 	array_size = np.prod(array.shape)
@@ -546,7 +555,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 	    tck = splrep(coord, column, k=k)
 	    spline = splev(points, tck)
 
-	    if length >= 5:
+	    if k == 4:
 		der_tck = splder(tck)
 		roots = sproot(der_tck)
 
@@ -556,7 +565,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 			index = (np.abs(points-root)).argmin()
 			if index == 0 or index == len(points) - 1:
 			    continue
-			if spline[index - 1] < spline[index] and spline[index + 1] < spline[index]:
+			if spline[index - 1] < spline[index] > spline[index + 1]:
 			    y.append(spline[index])
 		    if any(y):
 			global_values[next_index] = max(y)
@@ -572,10 +581,6 @@ def _peak(array, axis, coords, dims, **kwargs):
 		    global_values[next_index] = max(y)
 		else:
 		    global_values[next_index] = np.nanmax(column)
-
-	    #print global_values[next_index]
-	    #plt.plot(coord, column, 'x', points, spline)
-	    #plt.show()
 
 	    next_index += 1
 
@@ -645,7 +650,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 	    #k = 1
 	    
 	#tck = splrep(range(0, column.size, 1), column, k=k)
-	#points = np.linspace(0, column.size, column.size * 10)
+	#points = np.linspace(0, column.size, column.size * 100)
 	#spline = splev(points, tck)
 
 	#if column.size >= 5:

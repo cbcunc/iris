@@ -13,7 +13,7 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data, np.array([1], dtype=np.float32))
 
     def test_peak_coord_length_2(self):
@@ -26,7 +26,7 @@ class TestPeakAggregator(tests.IrisTest):
 
 	#result will be different if _peak changed to raise an error if no fitted peak found, instead 
 	#of taking the maximum value in the column
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 
     def test_peak_coord_length_3(self):
@@ -37,7 +37,7 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 
     def test_peak_1d(self):
@@ -48,7 +48,7 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-        collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+        collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6], dtype=np.float32))
 
     def test_peak_duplicate_coords(self):
@@ -59,10 +59,10 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([3], dtype=np.float32))
 
-	collapsed_cube = cube.collapsed(('latitude', 'latitude'), iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed(('latitude', 'latitude'), iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([3], dtype=np.float32))
 
     def test_peak_2d(self):
@@ -75,17 +75,17 @@ class TestPeakAggregator(tests.IrisTest):
 	cube.add_dim_coord(latitude, 0)
 	cube.add_dim_coord(longitude, 1)
 
-	collapsed_cube = cube.collapsed('longitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('longitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([3, 6, 4], dtype=np.float32))
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4.02497, 5.02497, 6.02497, 4.02497], dtype=np.float32))
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4.024977, 5.024977, 6.024977, 4.024977], dtype=np.float32))
 
-	collapsed_cube = cube.collapsed(('longitude', 'latitude'), iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.02497], dtype=np.float32))
+	collapsed_cube = cube.collapsed(('longitude', 'latitude'), iris.analysis.PEAK)
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.024977], dtype=np.float32))
 
-	collapsed_cube = cube.collapsed(('latitude', 'longitude'), iris.analysis.PEAK, wibble=True)
-	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.02497], dtype=np.float32))
+	collapsed_cube = cube.collapsed(('latitude', 'longitude'), iris.analysis.PEAK)
+	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([6.024977], dtype=np.float32))
     
     def test_peak_without_peak_value(self):
 	#no peak in column - values equal
@@ -95,7 +95,7 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([1], dtype=np.float32))
 
 	#no peak in column
@@ -104,7 +104,7 @@ class TestPeakAggregator(tests.IrisTest):
 			      units='kelvin')
 	cube.add_dim_coord(latitude, 0)
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([4], dtype=np.float32))
 
     def test_peak_with_nan(self):
@@ -117,13 +117,13 @@ class TestPeakAggregator(tests.IrisTest):
 
 	cube.data[2] = np.nan
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 	
 	#only nans in column
 	cube.data[:] = np.nan
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([np.nan], dtype=np.float32))
 
     def test_peak_with_mask(self):
@@ -136,13 +136,13 @@ class TestPeakAggregator(tests.IrisTest):
 
 	cube.data[2] = ma.masked
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 
 	#whole column masked
 	cube.data[:] = ma.masked
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	masked_array = ma.array(ma.masked)
 	#self.assertMaskedArrayAlmostEqual(collapsed_cube.data, masked_array)
 
@@ -155,7 +155,7 @@ class TestPeakAggregator(tests.IrisTest):
 	#cube.add_dim_coord(longitude, 1)
 
 	#cube.data[:] = ma.masked
-	#collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	#collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 
 	#masked_array = ma.array([np.nan, np.nan], dtype=np.float32)
 	#masked_array[:] = ma.masked
@@ -174,13 +174,13 @@ class TestPeakAggregator(tests.IrisTest):
 	cube.data[2] = np.nan
 	cube.data[3] = ma.masked
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([2], dtype=np.float32))
 	
 	#only nans in column where values not masked
 	cube.data[0:2] = np.nan
 
-	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK, wibble=True)
+	collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
 	self.assertArrayAlmostEqual(collapsed_cube.data, np.array([np.nan], dtype=np.float32))
 
 if __name__ == "__main__":
