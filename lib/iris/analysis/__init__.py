@@ -42,7 +42,6 @@ from scipy import signal
 #a copy of the splder source code from scipy version 0.13.0, which hasn't been released yet
 from scipy_splder import splder
 
-import matplotlib.pyplot as plt
 
 __all__ = ('COUNT', 'GMEAN', 'HMEAN', 'MAX', 'MEAN', 'MEDIAN', 'MIN',
            'PERCENTILE', 'PROPORTION', 'RMS', 'STD_DEV', 'SUM', 'VARIANCE',
@@ -594,7 +593,10 @@ def _peak(array, axis, coords, dims, **kwargs):
 		    y = [spline[value] for value in peak]
 
 		    # check if the peak is greater than the max value of the column
-		    global_values[next_index] =  max(y) if max(y) > np.nanmax(column) else np.nanmax(column)
+		    if max(y) > np.nanmax(column):
+			global_values[next_index] =  max(y) 
+		    else: 
+			global_values[next_index] = np.nanmax(column)
 		else:
 		    global_values[next_index] = np.nanmax(column)
 
