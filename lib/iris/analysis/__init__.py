@@ -503,6 +503,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 	return k
 
     new_coords = set(zip(coords, dims))
+    # sort coords by dimension number (highest first)
     sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
     coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
@@ -534,9 +535,11 @@ def _peak(array, axis, coords, dims, **kwargs):
 	    column = data[lower_index:(lower_index + length)]
 	    lower_index += length
 
+	    # check if array is masked
 	    if np.ma.isMaskedArray(column):
 		masked = True
 
+		# check if column contains nans and masked values only
 		if (not np.any(np.isfinite(column)) == True and 
 		    not np.any(np.isinf(column)) == True and 
 		    not np.ma.count(column) == 0):
@@ -545,29 +548,40 @@ def _peak(array, axis, coords, dims, **kwargs):
 		    next_index += 1
 		    continue
 
+		# replace masked values with nans
 		fill_value = None
 		fill_value = column.fill_value
 		column = column.filled(np.nan)
 
+	    # check if column values are all equal
 	    if all(point == column[0] for point in column) == True:
 		k = 1
 
 	    tck = splrep(coord, column, k=k)
 	    spline = splev(points, tck)
 
+	    # check if the order of the spline allows the roots of the derivative to be found
 	    if k == 4:
 		der_tck = splder(tck)
-		roots = sproot(der_tck)
+		est_roots = length * 10
+		roots = sproot(der_tck, mest=est_roots)
 
 		if any(roots):
 		    y = []
 		    for root in roots:
-			index = (np.abs(points-root)).argmin()
+			# find closest value to root
+			index = (np.abs(points - root)).argmin()
+
+			# check if root at either end of the spline
 			if index == 0 or index == len(points) - 1:
 			    continue
+
+			# check if maximum at root
 			if spline[index - 1] < spline[index] > spline[index + 1]:
 			    y.append(spline[index])
-		    if any(y):
+
+		    # check there is a maximum and it is greater than the max value of the column
+		    if any(y) and max(y) > np.nanmax(column):
 			global_values[next_index] = max(y)
 		    else:
 			global_values[next_index] = np.nanmax(column)
@@ -578,7 +592,9 @@ def _peak(array, axis, coords, dims, **kwargs):
 
 		if any(peak):
 		    y = [spline[value] for value in peak]
-		    global_values[next_index] = max(y)
+
+		    # check if the peak is greater than the max value of the column
+		    global_values[next_index] =  max(y) if max(y) > np.nanmax(column) else np.nanmax(column)
 		else:
 		    global_values[next_index] = np.nanmax(column)
 
@@ -590,11 +606,13 @@ def _peak(array, axis, coords, dims, **kwargs):
 	    for value in nan_values:
 		mask[value] = False
 
+	    #re-mask the original masked values
 	    if np.any(mask):
 		global_values = np.ma.MaskedArray(global_values, mask, fill_value=fill_value)
 
 	array = global_values.reshape(return_shape)
     return array
+
 
 #def _peak(array, axis, **kwargs):
     #def interp_order(column):
@@ -645,7 +663,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 	#if k == None:
 	    #break
 
-	## Check for all equal.
+	##Check for all equal.
 	#if all(point == column[0] for point in column) == True:
 	    #k = 1
 	    
@@ -653,19 +671,19 @@ def _peak(array, axis, coords, dims, **kwargs):
 	#points = np.linspace(0, column.size, column.size * 100)
 	#spline = splev(points, tck)
 
-	#if column.size >= 5:
-	    #der_tck = splder(tck)
-	    #roots = sproot(der_tck)
+	#if k == 4:
+	    #der_tck = splder(tck) 
+	    #roots = sproot(der_tck, mest=column.size * 10)
 
 	    #if any(roots):
 		#y = []
 		#for root in roots:
-		    #index = (np.abs(points-root)).argmin()
+		    #index = (np.abs(points - root)).argmin()
 		    #if index == 0 or index == len(points) - 1:
 			#continue
-		    #if spline[index - 1] < spline[index] and spline[index + 1] < spline[index]:
+		    #if spline[index - 1] < spline[index] > spline[index + 1]:
 			#y.append(spline[index])
-		#if any(y):
+		#if any(y) and max(y) > np.nanmax(column):
 		    #data[indices] = max(y)
 		#else:
 		    #data[indices] = np.nanmax(column)
@@ -676,7 +694,7 @@ def _peak(array, axis, coords, dims, **kwargs):
 
 	    #if any(peak):
 		#y = [spline[value] for value in peak]
-		#data[indices] = max(y)
+		#data[indices] = max(y) if max(y) > np.nanmax(column) else np.nanmax(column)
 	    #else:
 		#data[indices] = np.nanmax(column)
 
