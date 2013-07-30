@@ -507,15 +507,19 @@ def _peak(array, axis, coords, dims, **kwargs):
     sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
     coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
-    array_shape = array.shape[0:array.ndim - 1]
+    # Determine the shape of the dimensions to remain untouched
+    untouched_dims_shape = array.shape[0:array.ndim - 1]
     coord_index = -1
 
     for coord in coord_points:
         coord_index += 1
         length = coord_lengths[coord_index]
-        return_shape = array_shape + tuple(coord_lengths[:coord_index:-1])
+        # Concatenate the shape of the untouched dimensions and the shape
+        # of the dimensions yet to be collapsed.
+        return_shape = untouched_dims_shape + tuple(coord_lengths[:coord_index:-1])
         global_values = np.zeros(np.prod(return_shape))
 
+        # Determine the interpolation order.
         k = interp_order(length)
 
         if k is None:
@@ -540,8 +544,8 @@ def _peak(array, axis, coords, dims, **kwargs):
                 masked = True
 
                 # Check if column contains nans and masked values only.
-                if not np.any(np.isfinite(column)) is True and \
-                        not np.any(np.isinf(column)) is True and \
+                if not np.any(np.isfinite(column)) and \
+                        not np.any(np.isinf(column)) and \
                         not np.ma.count(column) == 0:
                     global_values[next_index] = np.nan
                     nan_values.append(next_index)
@@ -554,7 +558,7 @@ def _peak(array, axis, coords, dims, **kwargs):
                 column = column.filled(np.nan)
 
             # Check if column values are all equal.
-            if all(point == column[0] for point in column) is True:
+            if all(point == column[0] for point in column):
                 k = 1
 
             tck = splrep(coord, column, k=k)
@@ -610,6 +614,7 @@ def _peak(array, axis, coords, dims, **kwargs):
         if masked:
             mask = np.isnan(global_values)
 
+            # Remove the actual nans from the mask.
             for value in nan_values:
                 mask[value] = False
 
@@ -890,7 +895,34 @@ For example, to obtain the biased variance::
 PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
                   'peak',
                   _peak)
+"""
+The peak of a spline of the data.
 
+If no peak exists along the spline of the data, then the maximum data value is
+used, as computed by :func: 'numpy.nanmax'.
+
+If the maximum data value is greater than the peak found, then the maximum data
+value is used.
+
+The peak calculation takes into account nan values, therefore if the number
+of non-nan values is zero the result itself will be an array of nan values.
+
+The peak calculation also takes into account masked values, therefore if the number
+of non-masked values is zero the result itself will be a masked array.
+
+Required kwargs:
+
+* coords:
+    Coordinates to collapse. No default.
+
+* dims:
+    Dimensions of coordinates to collapse. No default.
+
+For example, to compute the peak over time::
+
+    result = cube.collapsed('time', iris.analysis.PEAK)
+
+"""
 
 class _Groupby(object):
     """
