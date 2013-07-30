@@ -36,12 +36,12 @@ from operator import itemgetter
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
-from scipy.interpolate import splev, splrep, sproot, interp1d
-from scipy import signal
+import scipy.interpolate #import splev, splrep, sproot
+import scipy.signal
 
 # A copy of the splder source code from scipy version 0.13.0,
 # which hasn't been released yet.
-from scipy_splder import splder
+from iris.analysis.scipy_splder import splder
 
 
 __all__ = ('COUNT', 'GMEAN', 'HMEAN', 'MAX', 'MEAN', 'MEDIAN', 'MIN',
@@ -562,15 +562,15 @@ def _peak(array, axis, coords, dims, **kwargs):
             if all(point == column[0] for point in column):
                 k = 1
 
-            tck = splrep(coord, column, k=k)
-            spline = splev(points, tck)
+            tck = scipy.interpolate.splrep(coord, column, k=k)
+            spline = scipy.interpolate.splev(points, tck)
 
             # Check if the order of the spline allows the roots of the
             # derivative to be found.
             if k == 4:
                 der_tck = splder(tck)
                 est_roots = length * 10
-                roots = sproot(der_tck, mest=est_roots)
+                roots = scipy.interpolate.sproot(der_tck, mest=est_roots)
 
                 if any(roots):
                     y = []
@@ -596,7 +596,7 @@ def _peak(array, axis, coords, dims, **kwargs):
                 else:
                     global_values[next_index] = np.nanmax(column)
             else:
-                peak = signal.argrelmax(spline)[0]
+                peak = scipy.signal.argrelmax(spline)[0]
 
                 if any(peak):
                     y = [spline[value] for value in peak]
