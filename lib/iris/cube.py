@@ -2319,10 +2319,10 @@ over month, year
 
         if aggregator.cell_method == 'peak':
             kwargs['coords'] = coords
-	    kwargs['dims'] = [self.coord_dims(coord)[0] for coord in coords]
+            kwargs['dims'] = [self.coord_dims(coord)[0] for coord in coords]
 
         data_result = aggregator.aggregate(unrolled_data, axis=-1, **kwargs)
-	kwargs.pop('coords', coords)
+        kwargs.pop('coords', coords)
         aggregator.update_metadata(collapsed_cube, coords, axis=-1, **kwargs)
         result = aggregator.post_process(collapsed_cube, data_result, **kwargs)
         return result

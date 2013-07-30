@@ -39,7 +39,8 @@ import scipy.stats.mstats
 from scipy.interpolate import splev, splrep, sproot, interp1d
 from scipy import signal
 
-#a copy of the splder source code from scipy version 0.13.0, which hasn't been released yet
+# A copy of the splder source code from scipy version 0.13.0,
+# which hasn't been released yet.
 from scipy_splder import splder
 
 
@@ -488,21 +489,21 @@ def _sum(array, **kwargs):
 
 def _peak(array, axis, coords, dims, **kwargs):
     def interp_order(length):
-	if length == 1:
-	    k = None
-	elif length == 2:
-	    k = 1
-	elif length == 3:
-	    k = 2
-	elif length == 4:
-	    k = 3
-	else:
-	    k = 4
+        if length == 1:
+            k = None
+        elif length == 2:
+            k = 1
+        elif length == 3:
+            k = 2
+        elif length == 4:
+            k = 3
+        else:
+            k = 4
 
-	return k
+        return k
 
     new_coords = set(zip(coords, dims))
-    # sort coords by dimension number (highest first)
+    # Sort coords by dimension number (highest first).
     sorted_coords = sorted(new_coords, key=itemgetter(1), reverse=True)
     coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
@@ -510,210 +511,116 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_index = -1
 
     for coord in coord_points:
-	coord_index += 1
-	length = coord_lengths[coord_index]
-	return_shape = array_shape + tuple(coord_lengths[:coord_index:-1])
-	global_values = np.zeros(np.prod(return_shape))
+        coord_index += 1
+        length = coord_lengths[coord_index]
+        return_shape = array_shape + tuple(coord_lengths[:coord_index:-1])
+        global_values = np.zeros(np.prod(return_shape))
 
-	k = interp_order(length)
+        k = interp_order(length)
 
-	if k == None:
-	    array = array.reshape(return_shape)
-	    continue
+        if k is None:
+            array = array.reshape(return_shape)
+            continue
 
-	npoints = length * 100
-	points = np.linspace(coord[0], coord[-1], npoints)
+        npoints = length * 100
+        points = np.linspace(coord[0], coord[-1], npoints)
 
-	data = array.flat
-	array_size = np.prod(array.shape)
-	lower_index = next_index = 0
-	masked = False
-	nan_values = []
+        data = array.flat
+        array_size = np.prod(array.shape)
+        lower_index = next_index = 0
+        masked = False
+        nan_values = []
 
-	while lower_index < array_size:
-	    column = data[lower_index:(lower_index + length)]
-	    lower_index += length
+        while lower_index < array_size:
+            column = data[lower_index:(lower_index + length)]
+            lower_index += length
 
-	    # check if array is masked
-	    if np.ma.isMaskedArray(column):
-		masked = True
+            # Check if array is masked.
+            if np.ma.isMaskedArray(column):
+                masked = True
 
-		# check if column contains nans and masked values only
-		if (not np.any(np.isfinite(column)) == True and 
-		    not np.any(np.isinf(column)) == True and 
-		    not np.ma.count(column) == 0):
-		    global_values[next_index] = np.nan
-		    nan_values.append(next_index)
-		    next_index += 1
-		    continue
+                # Check if column contains nans and masked values only.
+                if not np.any(np.isfinite(column)) is True and \
+                        not np.any(np.isinf(column)) is True and \
+                        not np.ma.count(column) == 0:
+                    global_values[next_index] = np.nan
+                    nan_values.append(next_index)
+                    next_index += 1
+                    continue
 
-		# replace masked values with nans
-		fill_value = None
-		fill_value = column.fill_value
-		column = column.filled(np.nan)
+                # Replace masked values with nans.
+                fill_value = None
+                fill_value = column.fill_value
+                column = column.filled(np.nan)
 
-	    # check if column values are all equal
-	    if all(point == column[0] for point in column) == True:
-		k = 1
+            # Check if column values are all equal.
+            if all(point == column[0] for point in column) is True:
+                k = 1
 
-	    tck = splrep(coord, column, k=k)
-	    spline = splev(points, tck)
+            tck = splrep(coord, column, k=k)
+            spline = splev(points, tck)
 
-	    # check if the order of the spline allows the roots of the derivative to be found
-	    if k == 4:
-		der_tck = splder(tck)
-		est_roots = length * 10
-		roots = sproot(der_tck, mest=est_roots)
+            # Check if the order of the spline allows the roots of the
+            # derivative to be found.
+            if k == 4:
+                der_tck = splder(tck)
+                est_roots = length * 10
+                roots = sproot(der_tck, mest=est_roots)
 
-		if any(roots):
-		    y = []
-		    for root in roots:
-			# find closest value to root
-			index = (np.abs(points - root)).argmin()
+                if any(roots):
+                    y = []
+                    for root in roots:
+                        # Find closest value to root.
+                        index = (np.abs(points - root)).argmin()
 
-			# check if root at either end of the spline
-			if index == 0 or index == len(points) - 1:
-			    continue
+                        # Check if root at either end of the spline.
+                        if index == 0 or index == len(points) - 1:
+                            continue
 
-			# check if maximum at root
-			if spline[index - 1] < spline[index] > spline[index + 1]:
-			    y.append(spline[index])
+                        # Check if maximum at root.
+                        if spline[index - 1] < spline[index] and \
+                                spline[index + 1] < spline[index]:
+                            y.append(spline[index])
 
-		    # check there is a maximum and it is greater than the max value of the column
-		    if any(y) and max(y) > np.nanmax(column):
-			global_values[next_index] = max(y)
-		    else:
-			global_values[next_index] = np.nanmax(column)
-		else:
-		    global_values[next_index] = np.nanmax(column)
-	    else:
-		peak = signal.argrelmax(spline)[0]
+                    # Check there is a maximum and it is greater than the max
+                    # value of the column.
+                    if any(y) and max(y) > np.nanmax(column):
+                        global_values[next_index] = max(y)
+                    else:
+                        global_values[next_index] = np.nanmax(column)
+                else:
+                    global_values[next_index] = np.nanmax(column)
+            else:
+                peak = signal.argrelmax(spline)[0]
 
-		if any(peak):
-		    y = [spline[value] for value in peak]
+                if any(peak):
+                    y = [spline[value] for value in peak]
 
-		    # check if the peak is greater than the max value of the column
-		    if max(y) > np.nanmax(column):
-			global_values[next_index] =  max(y) 
-		    else: 
-			global_values[next_index] = np.nanmax(column)
-		else:
-		    global_values[next_index] = np.nanmax(column)
+                    # Check if the peak is greater than the max value of the
+                    # column.
+                    if max(y) > np.nanmax(column):
+                        global_values[next_index] = max(y)
+                    else:
+                        global_values[next_index] = np.nanmax(column)
+                else:
+                    global_values[next_index] = np.nanmax(column)
 
-	    next_index += 1
+            next_index += 1
 
-	if masked:
-	    mask = np.isnan(global_values)
+        if masked:
+            mask = np.isnan(global_values)
 
-	    for value in nan_values:
-		mask[value] = False
+            for value in nan_values:
+                mask[value] = False
 
-	    #re-mask the original masked values
-	    if np.any(mask):
-		global_values = np.ma.MaskedArray(global_values, mask, fill_value=fill_value)
+            # Re-mask the original masked values.
+            if np.any(mask):
+                global_values = np.ma.MaskedArray(global_values,
+                                                  mask,
+                                                  fill_value=fill_value)
 
-	array = global_values.reshape(return_shape)
+        array = global_values.reshape(return_shape)
     return array
-
-
-#def _peak(array, axis, **kwargs):
-    #def interp_order(column):
-	#length = column.size
-	#if length == 1:
-	    #k = None
-	#elif length == 2:
-	    #k = 1
-	#elif length == 3:
-	    #k = 2
-	#elif length == 4:
-	    #k = 3
-	#else:
-	    #k = 4
-
-	#return k
-
-    #data = array.astype('float32')
-    #masked = False
-    #nan_values = []
-    
-    #shape = list(data.shape)
-    #shape[data.ndim - 1] = 1
-    #ndindices = np.ndindex(*shape)
-
-    #for ndindex in ndindices:
-	#ndindex = list(ndindex)
-	#ndindex[data.ndim - 1] = slice(None)
-	#indices = tuple(ndindex)
-	#column = array[indices]
-
-	#if np.ma.isMaskedArray(column):
-	    #masked = True
-
-	    #if (not np.any(np.isfinite(column)) == True and 
-		#not np.any(np.isinf(column)) == True and 
-		#not np.ma.count(column) == 0):
-		#data[indices] = np.nan
-		#nan_values.append(indices)
-		#continue
-
-	    #fill_value = None
-	    #fill_value = column.fill_value
-	    #column = column.filled(np.nan)
-
-	#k = interp_order(column)
-
-	#if k == None:
-	    #break
-
-	##Check for all equal.
-	#if all(point == column[0] for point in column) == True:
-	    #k = 1
-	    
-	#tck = splrep(range(0, column.size, 1), column, k=k)
-	#points = np.linspace(0, column.size, column.size * 100)
-	#spline = splev(points, tck)
-
-	#if k == 4:
-	    #der_tck = splder(tck) 
-	    #roots = sproot(der_tck, mest=column.size * 10)
-
-	    #if any(roots):
-		#y = []
-		#for root in roots:
-		    #index = (np.abs(points - root)).argmin()
-		    #if index == 0 or index == len(points) - 1:
-			#continue
-		    #if spline[index - 1] < spline[index] > spline[index + 1]:
-			#y.append(spline[index])
-		#if any(y) and max(y) > np.nanmax(column):
-		    #data[indices] = max(y)
-		#else:
-		    #data[indices] = np.nanmax(column)
-	    #else:
-		#data[indices] = np.nanmax(column)
-	#else:
-	    #peak = signal.argrelmax(spline)[0]
-
-	    #if any(peak):
-		#y = [spline[value] for value in peak]
-		#data[indices] = max(y) if max(y) > np.nanmax(column) else np.nanmax(column)
-	    #else:
-		#data[indices] = np.nanmax(column)
-
-    #if masked:
-	#mask = np.isnan(data)
-
-	#for value in nan_values:
-	    #mask[value] = False
-
-	#if np.any(mask):
-	    #data = np.ma.MaskedArray(data, mask, fill_value=fill_value)
-
-    #slices = [slice(None)] * data.ndim
-    #slices[data.ndim - 1] = 0
-    #data = data[slices]
-
-    #return data
 
 
 #
@@ -981,8 +888,8 @@ For example, to obtain the biased variance::
 """
 
 PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
-		  'peak',
-		  _peak)
+                  'peak',
+                  _peak)
 
 
 class _Groupby(object):
