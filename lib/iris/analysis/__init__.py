@@ -516,7 +516,8 @@ def _peak(array, axis, coords, dims, **kwargs):
         length = coord_lengths[coord_index]
         # Concatenate the shape of the untouched dimensions and the shape
         # of the dimensions yet to be collapsed.
-        return_shape = untouched_dims_shape + tuple(coord_lengths[:coord_index:-1])
+        dims_to_collapse = tuple(coord_lengths[:coord_index:-1])
+        return_shape = untouched_dims_shape + dims_to_collapse
         global_values = np.zeros(np.prod(return_shape))
 
         # Determine the interpolation order.
@@ -896,10 +897,10 @@ PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
                   'peak',
                   _peak)
 """
-The peak of a spline of the data.
+The peak of a spline fitted to the data.
 
 If no peak exists along the spline of the data, then the maximum data value is
-used, as computed by :func: 'numpy.nanmax'.
+used, as computed by :func:`numpy.nanmax`.
 
 If the maximum data value is greater than the peak found, then the maximum data
 value is used.
@@ -907,8 +908,8 @@ value is used.
 The peak calculation takes into account nan values, therefore if the number
 of non-nan values is zero the result itself will be an array of nan values.
 
-The peak calculation also takes into account masked values, therefore if the number
-of non-masked values is zero the result itself will be a masked array.
+The peak calculation also takes into account masked values, therefore if the
+number of non-masked values is zero the result itself will be a masked array.
 
 Required kwargs:
 
