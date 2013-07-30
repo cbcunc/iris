@@ -36,7 +36,7 @@ from operator import itemgetter
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
-import scipy.interpolate #import splev, splrep, sproot
+import scipy.interpolate
 import scipy.signal
 
 # A copy of the splder source code from scipy version 0.13.0,
