@@ -1,6 +1,6 @@
 import numpy as np
 
-# A copy of the splder source code from scipy version 0.13.0, 
+# A copy of the splder source code from scipy version 0.13.0,
 # which hasn't been released yet.
 
 
