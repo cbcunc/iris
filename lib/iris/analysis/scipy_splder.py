@@ -1,7 +1,9 @@
-# -*- coding: iso-8859-1 -*-
 import numpy as np
 
-#a copy of the splder source code from scipy version 0.13.0, which hasn't been released yet
+# A copy of the splder source code from scipy version 0.13.0, 
+# which hasn't been released yet.
+
+
 def splder(tck, n=1):
     """
     Compute the spline representation of the derivative of a given spline
@@ -58,13 +60,14 @@ def splder(tck, n=1):
     with np.errstate(invalid='raise', divide='raise'):
         try:
             for j in range(n):
-                # See e.g. Schumaker, Spline Functions: Basic Theory, Chapter 5
+                # See e.g. Schumaker, Spline Functions:Basic Theory, Chapter 5
 
                 # Compute the denominator in the differentiation formula.
                 dt = t[k+1:-1] - t[1:-k-1]
                 # Compute the new coefficients
                 c = (c[1:-1-k] - c[:-2-k]) * k / dt
-                # Pad coefficient array to same size as knots (FITPACK convention)
+                # Pad coefficient array to same size as knots
+                # (FITPACK convention)
                 c = np.r_[c, [0]*k]
                 # Adjust knots
                 t = t[1:-1]
@@ -74,6 +77,7 @@ def splder(tck, n=1):
                               "and is not differentiable %d times") % n)
 
     return t, c, k
+
 
 def splantider(tck, n=1):
     """

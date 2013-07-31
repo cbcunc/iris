@@ -1,4 +1,3 @@
-# -*- coding: iso-8859-1 -*-
 # (C) British Crown Copyright 2010 - 2013, Met Office
 #
 # This file is part of Iris.
@@ -491,15 +490,10 @@ def _peak(array, axis, coords, dims, **kwargs):
     def interp_order(length):
         if length == 1:
             k = None
-        elif length == 2:
-            k = 1
-        elif length == 3:
-            k = 2
-        elif length == 4:
-            k = 3
-        else:
+        elif length > 4:
             k = 4
-
+        else:
+            k = length - 1
         return k
 
     new_coords = set(zip(coords, dims))
@@ -508,7 +502,7 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
     # Determine the shape of the dimensions to remain untouched
-    untouched_dims_shape = array.shape[0:array.ndim - 1]
+    untouched_dims = array.shape[0:array.ndim - 1]
     coord_index = -1
 
     for coord in coord_points:
@@ -517,7 +511,7 @@ def _peak(array, axis, coords, dims, **kwargs):
         # Concatenate the shape of the untouched dimensions and the shape
         # of the dimensions yet to be collapsed.
         dims_to_collapse = tuple(coord_lengths[:coord_index:-1])
-        return_shape = untouched_dims_shape + dims_to_collapse
+        return_shape = untouched_dims + dims_to_collapse
         global_values = np.zeros(np.prod(return_shape))
 
         # Determine the interpolation order.

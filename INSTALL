@@ -49,7 +49,7 @@ python 2.7 or later (http://www.python.org/)
 numpy 1.6 or later (http://numpy.scipy.org/)
     Python package for scientific computing including a powerful N-dimensional array object.
 
-scipy 0.10 or later (http://www.scipy.org/)
+scipy 0.11 or later (http://www.scipy.org/)
     Python package for scientific computing.
 
 udunits2 2.1.24 or later (http://www.unidata.ucar.edu/software/udunits/udunits-2/udunits2.html)

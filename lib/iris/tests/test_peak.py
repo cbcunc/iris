@@ -1,4 +1,3 @@
-# -*- coding: iso-8859-1 -*-
 import iris.tests as tests
 import iris.tests.stock
 import numpy as np
