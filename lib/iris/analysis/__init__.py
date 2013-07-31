@@ -503,10 +503,8 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_lengths = [len(coord) for coord in coord_points]
     # Determine the shape of the dimensions to remain untouched
     untouched_dims = array.shape[0:array.ndim - 1]
-    coord_index = -1
 
-    for coord in coord_points:
-        coord_index += 1
+    for coord_index, coord in enumerate(coord_points):
         length = coord_lengths[coord_index]
         # Concatenate the shape of the untouched dimensions and the shape
         # of the dimensions yet to be collapsed.
