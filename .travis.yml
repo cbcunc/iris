@@ -33,7 +33,7 @@ install:
   - ./.travis_no_output sudo apt-get update
 
 # install deps
-  - ./.travis_no_output sudo apt-get install cython python-pip
+  - ./.travis_no_output sudo apt-get install cython python-pip python-numpy
   - ./.travis_no_output sudo /usr/bin/pip install --use-mirrors shapely nose pyshp pep8 mock
   - ./.travis_no_output sudo /usr/bin/pip install scipy==0.11.0
   - ./.travis_no_output sudo /usr/bin/pip install matplotlib==1.2.0
