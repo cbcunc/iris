@@ -160,8 +160,7 @@ class TestPeakAggregator(tests.IrisTest):
         cube.data[:] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
-        self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([np.nan], dtype=np.float32))
+        self.assertTrue(np.isnan(collapsed_cube.data).all())
 
     def test_peak_with_mask(self):
         # Single value in column masked.
@@ -208,8 +207,7 @@ class TestPeakAggregator(tests.IrisTest):
         cube.data[0:2] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
-        self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([np.nan], dtype=np.float32))
+        self.assertTrue(np.isnan(collapsed_cube.data).all())
 
 if __name__ == "__main__":
     tests.main()

@@ -30,13 +30,15 @@ from __future__ import division
 
 import collections
 from copy import deepcopy
-import iris.coords
 from operator import itemgetter
+
 import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
 import scipy.interpolate
 import scipy.signal
+
+import iris.coords
 
 # A copy of the splder source code from scipy version 0.13.0,
 # which hasn't been released yet.
@@ -502,7 +504,7 @@ def _peak(array, axis, coords, dims, **kwargs):
     coord_points = [sorted(coord[0].points) for coord in sorted_coords]
     coord_lengths = [len(coord) for coord in coord_points]
     # Determine the shape of the dimensions to remain untouched
-    untouched_dims = array.shape[0:array.ndim - 1]
+    untouched_dims = array.shape[:-1]
 
     for coord_index, coord in enumerate(coord_points):
         length = coord_lengths[coord_index]
