@@ -2315,8 +2315,8 @@ over month, year
         # If the PEAK aggregator is to be used, each coordinate to be collapsed
         # must be dealt with separately.
         if aggregator.cell_method == 'peak':
-            untouched_shape = [self.data.shape[d] for d in untouched_dims]
-            collapsed_shape = [self.data.shape[d] for d in dims_to_collapse]
+            untouched_shape = [self.shape[d] for d in untouched_dims]
+            collapsed_shape = [self.shape[d] for d in dims_to_collapse]
             new_shape = untouched_shape + collapsed_shape
 
             array_dims = untouched_dims + dims_to_collapse
