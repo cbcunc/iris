@@ -2277,18 +2277,10 @@ over month, year
         # Determine the dimensions we need to collapse (and those we don't)
         if aggregator.cell_method == 'peak':
             dims_to_collapse = [self.coord_dims(coord)[0] for coord in coords]
-            coord_points = [sorted(coord.points) for coord in coords]
-            dims_and_coords = zip(dims_to_collapse, coord_points)
 
-            # Remove duplicate coordinates.
-            new_coords = []
-            for coord in dims_and_coords:
-                if not new_coords.count(coord):
-                    new_coords.append(coord)
-
-            dims_to_collapse, coord_points = zip(*new_coords)
-            dims_to_collapse = list(dims_to_collapse)
-            coord_points = list(coord_points)
+            # Remove duplicate dimensions.
+            new_dims = collections.OrderedDict.fromkeys(dims_to_collapse)
+            dims_to_collapse = list(new_dims)[::-1]
         else:
             dims_to_collapse = set()
             for coord in coords:
@@ -2323,31 +2315,20 @@ over month, year
         # If the PEAK aggregator is to be used, each coordinate to be collapsed
         # must be dealt with separately.
         if aggregator.cell_method == 'peak':
-            array = self.data
+            untouched_shape = [self.data.shape[d] for d in untouched_dims]
+            collapsed_shape = [self.data.shape[d] for d in dims_to_collapse]
+            new_shape = untouched_shape + collapsed_shape
 
-            for index, coord in enumerate(coord_points):
-                dim = dims_to_collapse[index]
-                dims_to_wait = dims_to_collapse[index + 1:]
+            array_dims = untouched_dims + dims_to_collapse
+            unrolled_data = np.transpose(
+                self.data, array_dims).reshape(new_shape)
 
-                untouched_shape = [array.shape[d] for d in untouched_dims]
-                to_wait_shape = [array.shape[d] for d in dims_to_wait]
-                dim_shape = [array.shape[dim]]
-                new_shape = untouched_shape + to_wait_shape + dim_shape
+            for dim in dims_to_collapse:
+                unrolled_data = aggregator.aggregate(unrolled_data,
+                                                     axis=-1,
+                                                     **kwargs)
 
-                array_dims = untouched_dims + dims_to_wait + [dim]
-                unrolled_data = np.transpose(
-                    array, array_dims).reshape(new_shape)
-
-                # Reduce the dimension values appropriately,
-                # for the next coordinate.
-                if index != len(dims_to_collapse) - 1:
-                    dims_to_collapse = [d - 1 if d > dim else d
-                                        for d in dims_to_collapse]
-                    untouched_dims = [d - 1 if d > dim else d
-                                      for d in untouched_dims]
-
-                array = aggregator.aggregate(unrolled_data, axis=-1, **kwargs)
-            data_result = array
+            data_result = unrolled_data
         else:
             dims_to_collapse = sorted(dims_to_collapse)
 
