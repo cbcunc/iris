@@ -671,6 +671,9 @@ def _Unit(category, ut_unit, calendar=None, origin=None):
     return unit
 
 
+_CACHE = {}
+
+
 def as_unit(unit):
     """
     Returns a Unit corresponding to the given unit.
@@ -680,9 +683,18 @@ def as_unit(unit):
         If the given unit is already a Unit it will be returned unchanged.
 
     """
-    if not isinstance(unit, Unit):
-        unit = Unit(unit)
-    return unit
+    if isinstance(unit, Unit):
+        result = unit
+    else:
+        result = None
+        use_cache = isinstance(unit, basestring) or unit is None
+        if use_cache:
+            result = _CACHE.get(unit)
+        if result is None:
+            result = Unit(unit)
+            if use_cache:
+                _CACHE[unit] = result
+    return result
 
 
 def is_time(unit):
@@ -1685,10 +1697,7 @@ class Unit(iris.util._OrderedHashable):
 
         # Compare UDUNITS.
         res = _ut_compare(self.ut_unit, other.ut_unit)
-        if res == 0:
-            return True
-        else:
-            return False
+        return res == 0
 
     def __ne__(self, other):
         """

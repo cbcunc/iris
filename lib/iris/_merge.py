@@ -1435,6 +1435,7 @@ class ProtoCube(object):
 
         cube_aux_coords = cube.aux_coords
         coords = cube.dim_coords + cube_aux_coords
+        cube_aux_coord_ids = {id(coord) for coord in cube_aux_coords}
 
         # Coordinate hint ordering dictionary - from most preferred to least.
         # Copes with duplicate hint entries, where the most preferred is king.
@@ -1457,12 +1458,18 @@ class ProtoCube(object):
             if not cube.coord_dims(coord) and coord.shape == (1,):
                 # Extract the scalar coordinate data and metadata.
                 scalar_defns.append(coord._as_defn())
-                scalar_values.append(coord.cell(0))
-                points_dtype = coord.points.dtype
-                if coord.bounds is not None:
-                    bounds_dtype = coord.bounds.dtype
+                # Because we know there's a single Cell in the
+                # coordinate, it's quicker to roll our own than use
+                # Coord.cell().
+                points = coord.points
+                bounds = coord.bounds
+                points_dtype = points.dtype
+                if bounds is not None:
+                    bounds_dtype = bounds.dtype
+                    bounds = bounds[0]
                 else:
                     bounds_dtype = None
+                scalar_values.append(iris.coords.Cell(points[0], bounds))
                 kwargs = {}
                 if isinstance(coord, iris.coords.DimCoord):
                     kwargs['circular'] = coord.circular
@@ -1470,7 +1477,7 @@ class ProtoCube(object):
                                                       bounds_dtype, kwargs))
             else:
                 # Extract the vector coordinate and metadata.
-                if coord in cube_aux_coords:
+                if id(coord) in cube_aux_coord_ids:
                     vector_aux_coords_and_dims.append(
                         _CoordAndDims(coord, tuple(cube.coord_dims(coord))))
                 else:

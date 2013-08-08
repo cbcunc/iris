@@ -512,8 +512,8 @@ class Coord(CFVariableMixin):
 
     # Must supply __ne__, Python does not defer to __eq__ for negative equality
     def __ne__(self, other):
-        result = self == other
-        if result != NotImplemented:
+        result = self.__eq__(other)
+        if result is not NotImplemented:
             result = not result
         return result
 
@@ -841,10 +841,6 @@ class Coord(CFVariableMixin):
         bound = None
         if self.bounds is not None:
             bound = tuple(np.array(self.bounds[index], ndmin=1).flatten())
-            if len(bound) != self.nbounds:
-                raise IndexError('The index %s did not uniquely identify a '
-                                 'single bound to create a cell with.' %
-                                 (index, ))
 
         return Cell(point, bound)
 
@@ -1186,6 +1182,57 @@ class DimCoord(Coord):
                         attributes=coord.attributes,
                         coord_system=copy.deepcopy(coord.coord_system),
                         circular=getattr(coord, 'circular', False))
+
+    @classmethod
+    def from_regular(cls, zeroth, step, count, standard_name=None,
+                     long_name=None, var_name=None, units='1', attributes=None,
+                     coord_system=None, circular=False, with_bounds=False):
+        """
+        Create a :class:`DimCoord` with regularly spaced points, and
+        optionally bounds.
+
+        The majority of the arguments are defined as for
+        :meth:`Coord.__init__`, but those which differ are defined below.
+
+        Args:
+
+        * zeroth:
+            The value *prior* to the first point value.
+        * step:
+            The numeric difference between successive point values.
+        * count:
+            The number of point values.
+
+        Kwargs:
+
+        * with_bounds:
+            If True, the resulting DimCoord will possess bound values
+            which are equally spaced around the points. Otherwise no
+            bounds values will be defined. Defaults to False.
+
+        """
+        coord = DimCoord.__new__(cls)
+
+        coord.standard_name = standard_name
+        coord.long_name = long_name
+        coord.var_name = var_name
+        coord.units = units
+        coord.attributes = attributes
+        coord.coord_system = coord_system
+        coord.circular = circular
+
+        points = (zeroth+step) + step*np.arange(count, dtype=np.float32)
+        points.flags.writeable = False
+        coord._points = points
+
+        if with_bounds:
+            bounds = np.concatenate([[points - delta], [points + delta]]).T
+            bounds.flags.writeable = False
+            coord._bounds = bounds
+        else:
+            coord._bounds = None
+
+        return coord
 
     def __init__(self, points, standard_name=None, long_name=None,
                  var_name=None, units='1', bounds=None, attributes=None,
