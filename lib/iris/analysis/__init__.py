@@ -538,39 +538,41 @@ def _peak(array, **kwargs):
         ndindex = list(ndindex)
         ndindex[-1] = slice(None)
         indices = tuple(ndindex)
-        column = array[indices]
+        column_slice = array[indices]
 
-        # Check if the column contains a single value or values are all equal.
-        if column.size == 1 or all(point == column[0] for point in column):
-            break
+        # Check if the column slice contains a single value or values
+        # are all equal.
+        if column_slice.size == 1 or \
+                all(point == column_slice[0] for point in column_slice):
+            continue
 
-        # Check if the column contains nans only.
-        if all(np.isnan(column)):
+        # Check if the column slice contains nans only.
+        if all(np.isnan(column_slice)):
             data[indices] = np.nan
             continue
 
         # Check if the array is masked.
-        if np.ma.isMaskedArray(column):
+        if np.ma.isMaskedArray(column_slice):
             masked = True
             fill_value = None
-            fill_value = column.fill_value
+            fill_value = column_slice.fill_value
 
-            # Check if the column contains masked values only.
-            if np.ma.count(column) == 0:
+            # Check if the column slice contains masked values only.
+            if np.ma.count(column_slice) == 0:
                 data[indices] = np.nan
                 continue
-            # Check if the column contains nans and masked values only.
-            elif not np.any(np.isfinite(column)) and \
-                    not np.any(np.isinf(column)):
+            # Check if the column slice contains nans and masked values only.
+            elif not np.any(np.isfinite(column_slice)) and \
+                    not np.any(np.isinf(column_slice)):
                 data[indices] = np.nan
                 nan_values.append(indices)
                 continue
 
             # Replace masked values with nans.
-            column = column.filled(np.nan)
+            column_slice = column_slice.filled(np.nan)
 
         # Determine the column segments that require a fitted spline.
-        columns = column_segments(column)
+        columns = column_segments(column_slice)
         column_peaks = []
 
         for column in columns:
