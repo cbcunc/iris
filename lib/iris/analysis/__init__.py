@@ -489,6 +489,27 @@ def _sum(array, **kwargs):
 
 
 def _peak(array, **kwargs):
+    def column_segments(column):
+        nan_indices = [index for index, value in enumerate(column)
+                       if np.isnan(value)]
+        columns = []
+
+        if len(nan_indices) == 0:
+            columns.append(column)
+        elif len(nan_indices) == 1:
+            columns.append(column[:nan_indices[0]])
+            columns.append(column[nan_indices[0] + 1:])
+        else:
+            for index, value in enumerate(nan_indices):
+                if index == 0:
+                    columns.append(column[:value])
+                elif index == len(nan_indices) - 1:
+                    columns.append(column[value + 1:])
+
+                if index != len(nan_indices) - 1:
+                    columns.append(column[value + 1:nan_indices[index + 1]])
+        return columns
+
     def interp_order(length):
         if length == 1:
             k = None
@@ -512,82 +533,104 @@ def _peak(array, **kwargs):
         indices = tuple(ndindex)
         column = array[indices]
 
-        # Check if array is masked.
+        # Check if the column contains a single value or values are all equal.
+        if column.size == 1 or all(point == column[0] for point in column):
+            break
+
+        # Check if the column contains nans only.
+        if all(np.isnan(column)):
+            data[indices] = np.nan
+            continue
+
+        # Check if the array is masked.
         if np.ma.isMaskedArray(column):
             masked = True
+            fill_value = None
+            fill_value = column.fill_value
 
-            # Check if column contains nans and masked values only.
-            if not np.any(np.isfinite(column)) and \
-                    not np.any(np.isinf(column)) and \
-                    not np.ma.count(column) == 0:
+            # Check if the column contains masked values only.
+            if np.ma.count(column) == 0:
+                data[indices] = np.nan
+                continue
+            # Check if the column contains nans and masked values only.
+            elif not np.any(np.isfinite(column)) and \
+                    not np.any(np.isinf(column)):
                 data[indices] = np.nan
                 nan_values.append(indices)
                 continue
 
             # Replace masked values with nans.
-            fill_value = None
-            fill_value = column.fill_value
             column = column.filled(np.nan)
 
-        # Determine the interpolation order.
-        k = interp_order(column.size)
+        # Determine the column segments that require a fitted spline.
+        columns = column_segments(column)
+        column_peaks = []
 
-        if k is None:
-            break
+        for column in columns:
+            if len(column) == 0:
+                continue
 
-        # Check if column values are all equal.
-        if all(point == column[0] for point in column):
-            k = 1
+            # Determine the interpolation order.
+            k = interp_order(column.size)
 
-        tck = scipy.interpolate.splrep(range(0, column.size, 1), column, k=k)
-        npoints = column.size * 100
-        points = np.linspace(0, column.size - 1, npoints)
-        spline = scipy.interpolate.splev(points, tck)
+            if k is None:
+                column_peaks.append(column[0])
+                continue
 
-        # Check if the order of the spline allows the roots of the
-        # derivative to be found.
-        if k == 4:
-            der_tck = splder(tck)
-            est_roots = column.size * 10
-            roots = scipy.interpolate.sproot(der_tck, mest=est_roots)
+            tck = scipy.interpolate.splrep(range(0, column.size, 1),
+                                           column,
+                                           k=k)
+            npoints = column.size * 100
+            points = np.linspace(0, column.size - 1, npoints)
+            spline = scipy.interpolate.splev(points, tck)
 
-            if any(roots):
-                y = []
-                for root in roots:
-                    # Find closest value to root.
-                    index = (np.abs(points - root)).argmin()
+            column_max = max(column)
+            # Check if the order of the spline allows the roots of the
+            # derivative to be found.
+            if k == 4:
+                der_tck = splder(tck)
+                est_roots = column.size * 10
+                roots = scipy.interpolate.sproot(der_tck, mest=est_roots)
 
-                    # Check if root at either end of the spline.
-                    if index == 0 or index == len(points) - 1:
-                        continue
+                if any(roots):
+                    y = []
+                    for root in roots:
+                        # Find the closest value to the root.
+                        index = (np.abs(points - root)).argmin()
 
-                    # Check if maximum at root.
-                    if spline[index - 1] < spline[index] and \
-                            spline[index + 1] < spline[index]:
-                        y.append(spline[index])
+                        # Check if the root is at either end of the spline.
+                        if index == 0 or index == len(points) - 1:
+                            continue
 
-                # Check there is a maximum and it is greater than the max
-                # value of the column.
-                if any(y) and max(y) > np.nanmax(column):
-                    data[indices] = max(y)
+                        # Check if there is a maximum at the root.
+                        if spline[index - 1] < spline[index] and \
+                                spline[index + 1] < spline[index]:
+                            y.append(spline[index])
+
+                    # Check there is a maximum and it is greater than the max
+                    # value of the column.
+                    if any(y) and max(y) > column_max:
+                        column_peaks.append(max(y))
+                    else:
+                        column_peaks.append(column_max)
                 else:
-                    data[indices] = np.nanmax(column)
+                    column_peaks.append(column_max)
             else:
-                data[indices] = np.nanmax(column)
-        else:
-            peak = scipy.signal.argrelmax(spline)[0]
+                peak = scipy.signal.argrelmax(spline)[0]
 
-            if any(peak):
-                y = [spline[value] for value in peak]
+                if any(peak):
+                    y = [spline[value] for value in peak]
 
-                # Check if the peak is greater than the max value of the
-                # column.
-                if max(y) > np.nanmax(column):
-                    data[indices] = max(y)
+                    # Check if the peak is greater than the max value of the
+                    # column.
+                    if max(y) > column_max:
+                        column_peaks.append(max(y))
+                    else:
+                        column_peaks.append(column_max)
                 else:
-                    data[indices] = np.nanmax(column)
-            else:
-                data[indices] = np.nanmax(column)
+                    column_peaks.append(column_max)
+
+        data[indices] = max(column_peaks)
 
     if masked:
         mask = np.isnan(data)
@@ -879,11 +922,8 @@ PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
 """
 The peak of a spline fitted to the data.
 
-If no peak exists along the spline of the data, then the maximum data value is
-used, as computed by :func:`numpy.nanmax`.
-
-If the maximum data value is greater than the peak found, then the maximum data
-value is used.
+If no peak exists along the spline of the data or the maximum data value is
+greater than the peak found, then the maximum data value is used.
 
 The peak calculation takes into account nan values, therefore if the number
 of non-nan values is zero the result itself will be an array of nan values.

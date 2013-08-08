@@ -142,19 +142,19 @@ class TestPeakAggregator(tests.IrisTest):
 
     def test_peak_with_nan(self):
         # Single nan in column.
-        latitude = iris.coords.DimCoord(range(0, 4, 1),
+        latitude = iris.coords.DimCoord(range(0, 5, 1),
                                         standard_name='latitude',
                                         units='degrees')
-        cube = iris.cube.Cube(np.array([1, 2, 3, 1], dtype=np.float32),
+        cube = iris.cube.Cube(np.array([1, 4, 2, 3, 1], dtype=np.float32),
                               standard_name='air_temperature',
                               units='kelvin')
         cube.add_dim_coord(latitude, 0)
 
-        cube.data[2] = np.nan
+        cube.data[3] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([2], dtype=np.float32))
+                                    np.array([4.024977], dtype=np.float32))
 
         # Only nans in column.
         cube.data[:] = np.nan
@@ -164,19 +164,19 @@ class TestPeakAggregator(tests.IrisTest):
 
     def test_peak_with_mask(self):
         # Single value in column masked.
-        latitude = iris.coords.DimCoord(range(0, 4, 1),
+        latitude = iris.coords.DimCoord(range(0, 5, 1),
                                         standard_name='latitude',
                                         units='degrees')
-        cube = iris.cube.Cube(ma.array([1, 2, 3, 2], dtype=np.float32),
+        cube = iris.cube.Cube(ma.array([1, 4, 2, 3, 2], dtype=np.float32),
                               standard_name='air_temperature',
                               units='kelvin')
         cube.add_dim_coord(latitude, 0)
 
-        cube.data[2] = ma.masked
+        cube.data[3] = ma.masked
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([2], dtype=np.float32))
+                                    np.array([4.024977], dtype=np.float32))
 
         # Whole column masked.
         cube.data[:] = ma.masked
@@ -188,23 +188,23 @@ class TestPeakAggregator(tests.IrisTest):
 
     def test_peak_with_nan_and_mask(self):
         # Single nan in column with single value masked.
-        latitude = iris.coords.DimCoord(range(0, 4, 1),
+        latitude = iris.coords.DimCoord(range(0, 5, 1),
                                         standard_name='latitude',
                                         units='degrees')
-        cube = iris.cube.Cube(ma.array([1, 2, 3, 1], dtype=np.float32),
+        cube = iris.cube.Cube(ma.array([1, 4, 2, 3, 1], dtype=np.float32),
                               standard_name='air_temperature',
                               units='kelvin')
         cube.add_dim_coord(latitude, 0)
 
-        cube.data[2] = np.nan
-        cube.data[3] = ma.masked
+        cube.data[3] = np.nan
+        cube.data[4] = ma.masked
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([2], dtype=np.float32))
+                                    np.array([4.024977], dtype=np.float32))
 
         # Only nans in column where values not masked.
-        cube.data[0:2] = np.nan
+        cube.data[0:3] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertTrue(np.isnan(collapsed_cube.data).all())
