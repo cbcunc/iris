@@ -2295,10 +2295,12 @@ over month, year
 
         # Determine the dimensions we need to collapse (and those we don't)
         if aggregator.cell_method == 'peak':
-            dims_to_collapse = [self.coord_dims(coord)[0] for coord in coords]
+            dims_to_collapse = [list(self.coord_dims(coord))
+                                for coord in coords]
 
             # Remove duplicate dimensions.
-            new_dims = collections.OrderedDict.fromkeys(dims_to_collapse)
+            new_dims = collections.OrderedDict.fromkeys(
+                d for dim in dims_to_collapse for d in dim)
             dims_to_collapse = list(new_dims)[::-1]
         else:
             dims_to_collapse = set()
@@ -2346,7 +2348,6 @@ over month, year
                 unrolled_data = aggregator.aggregate(unrolled_data,
                                                      axis=-1,
                                                      **kwargs)
-
             data_result = unrolled_data
         else:
             dims_to_collapse = sorted(dims_to_collapse)

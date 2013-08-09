@@ -36,7 +36,6 @@ import numpy as np
 import numpy.ma as ma
 import scipy.stats.mstats
 import scipy.interpolate
-import scipy.signal
 
 import iris.coords
 
@@ -604,38 +603,41 @@ def _peak(array, **kwargs):
                 if any(roots):
                     y = []
                     for root in roots:
-                        # Find the closest value to the root.
+                        # Find the closest x value to the root.
                         index = (np.abs(points - root)).argmin()
 
-                        # Check if the root is at either end of the spline.
-                        if index == 0 or index == len(points) - 1:
-                            continue
+                        # Determine the most representative y value for the
+                        # root.
+                        if points[index] < root and index != len(points) - 1:
+                            if spline[index] > spline[index + 1]:
+                                value = spline[index]
+                            else:
+                                value = spline[index + 1]
+                        elif points[index] > root and index != 0:
+                            if spline[index] > spline[index - 1]:
+                                value = spline[index]
+                            else:
+                                value = spline[index - 1]
+                        else:
+                            value = spline[index]
 
-                        # Check if there is a maximum at the root.
-                        if spline[index - 1] < spline[index] and \
-                                spline[index + 1] < spline[index]:
-                            y.append(spline[index])
+                        y.append(value)
 
-                    # Check there is a maximum and it is greater than the max
-                    # value of the column.
-                    if any(y) and max(y) > column_max:
-                        column_peaks.append(max(y))
+                    spline_max = max(y)
+                    # Check if the max value of the spline is greater than the
+                    # max value of the column.
+                    if spline_max > column_max:
+                        column_peaks.append(spline_max)
                     else:
                         column_peaks.append(column_max)
                 else:
                     column_peaks.append(column_max)
             else:
-                peak = scipy.signal.argrelmax(spline)[0]
-
-                if any(peak):
-                    y = [spline[value] for value in peak]
-
-                    # Check if the peak is greater than the max value of the
-                    # column.
-                    if max(y) > column_max:
-                        column_peaks.append(max(y))
-                    else:
-                        column_peaks.append(column_max)
+                spline_max = max(spline)
+                # Check if the max value of the spline is greater than the
+                # max value of the column.
+                if spline_max > column_max:
+                    column_peaks.append(spline_max)
                 else:
                     column_peaks.append(column_max)
 
