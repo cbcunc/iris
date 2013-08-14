@@ -774,6 +774,28 @@ For example, to compute zonal minimums::
 """
 
 
+PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
+                  'peak',
+                  _peak)
+"""
+The peak of a spline fitted to the data.
+
+If no peak exists along the spline of the data or the maximum data value is
+greater than the peak found, then the maximum data value is used.
+
+The peak calculation takes into account nan values, therefore if the number
+of non-nan values is zero the result itself will be an array of nan values.
+
+The peak calculation also takes into account masked values, therefore if the
+number of non-masked values is zero the result itself will be a masked array.
+
+For example, to compute the peak over time::
+
+    result = cube.collapsed('time', iris.analysis.PEAK)
+
+"""
+
+
 PERCENTILE = Aggregator('Percentile ({percent}%) of {standard_name:s} {action:s} {coord_names:s}',
                   'percentile ({percent}%)',
                   _percentile,
@@ -920,26 +942,6 @@ For example, to obtain the biased variance::
 
 """
 
-PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
-                  'peak',
-                  _peak)
-"""
-The peak of a spline fitted to the data.
-
-If no peak exists along the spline of the data or the maximum data value is
-greater than the peak found, then the maximum data value is used.
-
-The peak calculation takes into account nan values, therefore if the number
-of non-nan values is zero the result itself will be an array of nan values.
-
-The peak calculation also takes into account masked values, therefore if the
-number of non-masked values is zero the result itself will be a masked array.
-
-For example, to compute the peak over time::
-
-    result = cube.collapsed('time', iris.analysis.PEAK)
-
-"""
 
 class _Groupby(object):
     """
