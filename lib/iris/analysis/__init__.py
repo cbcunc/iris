@@ -539,15 +539,12 @@ def _peak(array, **kwargs):
         indices = tuple(ndindex)
         column_slice = array[indices]
 
-        # Check if the column slice contains a single value or values
-        # are all equal.
+        # Check if the column slice contains a single value, nans only,
+        # masked values only or if the values are all equal.
         if column_slice.size == 1 or \
+                all(np.isnan(column_slice)) or \
+                np.ma.count(column_slice) == 0 or \
                 all(point == column_slice[0] for point in column_slice):
-            continue
-
-        # Check if the column slice contains nans only.
-        if all(np.isnan(column_slice)):
-            data[indices] = np.nan
             continue
 
         # Check if the array is masked.
@@ -556,12 +553,8 @@ def _peak(array, **kwargs):
             fill_value = None
             fill_value = column_slice.fill_value
 
-            # Check if the column slice contains masked values only.
-            if np.ma.count(column_slice) == 0:
-                data[indices] = np.nan
-                continue
             # Check if the column slice contains nans and masked values only.
-            elif not np.any(np.isfinite(column_slice)) and \
+            if not np.any(np.isfinite(column_slice)) and \
                     not np.any(np.isinf(column_slice)):
                 data[indices] = np.nan
                 nan_values.append(indices)
