@@ -519,8 +519,8 @@ def _peak(array, **kwargs):
     def interp_order(length):
         if length == 1:
             k = None
-        elif length > 4:
-            k = 4
+        elif length > 5:
+            k = 5
         else:
             k = length - 1
         return k
@@ -529,7 +529,7 @@ def _peak(array, **kwargs):
     masked = False
     nan_values = []
 
-    shape = list(data.shape)
+    shape = list(array.shape)
     shape[-1] = 1
     ndindices = np.ndindex(*shape)
 
@@ -547,7 +547,7 @@ def _peak(array, **kwargs):
                 all(point == column_slice[0] for point in column_slice):
             continue
 
-        # Check if the array is masked.
+        # Check if the column slice is masked.
         if np.ma.isMaskedArray(column_slice):
             masked = True
             fill_value = None
@@ -586,53 +586,13 @@ def _peak(array, **kwargs):
             spline = scipy.interpolate.splev(points, tck)
 
             column_max = max(column)
-            # Check if the order of the spline allows the roots of the
-            # derivative to be found.
-            if k == 4:
-                der_tck = splder(tck)
-                est_roots = column.size * 10
-                roots = scipy.interpolate.sproot(der_tck, mest=est_roots)
-
-                if any(roots):
-                    y = []
-                    for root in roots:
-                        # Find the closest x value to the root.
-                        index = (np.abs(points - root)).argmin()
-
-                        # Determine the most representative y value for the
-                        # root.
-                        if points[index] < root and index != len(points) - 1:
-                            if spline[index] > spline[index + 1]:
-                                value = spline[index]
-                            else:
-                                value = spline[index + 1]
-                        elif points[index] > root and index != 0:
-                            if spline[index] > spline[index - 1]:
-                                value = spline[index]
-                            else:
-                                value = spline[index - 1]
-                        else:
-                            value = spline[index]
-
-                        y.append(value)
-
-                    spline_max = max(y)
-                    # Check if the max value of the spline is greater than the
-                    # max value of the column.
-                    if spline_max > column_max:
-                        column_peaks.append(spline_max)
-                    else:
-                        column_peaks.append(column_max)
-                else:
-                    column_peaks.append(column_max)
+            spline_max = max(spline)
+            # Check if the max value of the spline is greater than the
+            # max value of the column.
+            if spline_max > column_max:
+                column_peaks.append(spline_max)
             else:
-                spline_max = max(spline)
-                # Check if the max value of the spline is greater than the
-                # max value of the column.
-                if spline_max > column_max:
-                    column_peaks.append(spline_max)
-                else:
-                    column_peaks.append(column_max)
+                column_peaks.append(column_max)
 
         data[indices] = max(column_peaks)
 
@@ -779,9 +739,6 @@ PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
                   _peak)
 """
 The peak of a spline fitted to the data.
-
-If no peak exists along the spline of the data or the maximum data value is
-greater than the peak found, then the maximum data value is used.
 
 The peak calculation takes into account nan values, therefore if the number
 of non-nan values is zero the result itself will be an array of nan values.
