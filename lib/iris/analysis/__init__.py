@@ -30,18 +30,13 @@ from __future__ import division
 
 import collections
 from copy import deepcopy
-from operator import itemgetter
 
 import numpy as np
 import numpy.ma as ma
-import scipy.stats.mstats
 import scipy.interpolate
+import scipy.stats.mstats
 
 import iris.coords
-
-# A copy of the splder source code from scipy version 0.13.0,
-# which hasn't been released yet.
-from iris.analysis.scipy_splder import splder
 
 
 __all__ = ('COUNT', 'GMEAN', 'HMEAN', 'MAX', 'MEAN', 'MEDIAN', 'MIN',
