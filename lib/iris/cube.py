@@ -2356,16 +2356,15 @@ over month, year
                                              dims_to_collapse))
             untouched_shape = [self.shape[dim] for dim in untouched_dims]
             new_shape = untouched_shape + [end_size]
-            unrolled_data = np.transpose(
-                self.data, untouched_dims + dims_to_collapse).reshape(
-                    new_shape)
+            dims = untouched_dims + dims_to_collapse
+            unrolled_data = np.transpose(self.data, dims).reshape(new_shape)
 
             # Perform the same operation on the weights if applicable
             if kwargs.get("weights") is not None:
                 weights = kwargs["weights"].view()
-                kwargs["weights"] = np.transpose(
-                    weights, untouched_dims + dims_to_collapse).reshape(
-                        new_shape)
+                dims = untouched_dims + dims_to_collapse
+                kwargs["weights"] = np.transpose(weights,
+                                                 dims).reshape(new_shape)
 
             data_result = aggregator.aggregate(unrolled_data,
                                                axis=-1,
