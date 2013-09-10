@@ -147,16 +147,6 @@ class TestPeakAggregator(tests.IrisTest):
         self.assertArrayAlmostEqual(collapsed_cube.data,
                                     np.array([1], dtype=np.float32))
 
-        # No peak in column.
-        cube = iris.cube.Cube(np.array([1, 2, 3, 4]),
-                              standard_name='air_temperature',
-                              units='kelvin')
-        cube.add_dim_coord(latitude, 0)
-
-        collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
-        self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([4], dtype=np.float32))
-
     def test_peak_with_nan(self):
         # Single nan in column.
         latitude = iris.coords.DimCoord(range(0, 5, 1),
@@ -172,12 +162,14 @@ class TestPeakAggregator(tests.IrisTest):
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
                                     np.array([4.024977], dtype=np.float32))
+        self.assertEqual(collapsed_cube.data.shape, (1,))
 
         # Only nans in column.
         cube.data[:] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertTrue(np.isnan(collapsed_cube.data).all())
+        self.assertEqual(collapsed_cube.data.shape, (1,))
 
     def test_peak_with_mask(self):
         # Single value in column masked.
@@ -194,14 +186,17 @@ class TestPeakAggregator(tests.IrisTest):
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
                                     np.array([4.024977], dtype=np.float32))
+        self.assertTrue(ma.isMaskedArray(collapsed_cube.data))
+        self.assertEqual(collapsed_cube.data.shape, (1,))
 
         # Whole column masked.
         cube.data[:] = ma.masked
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         masked_array = ma.array(ma.masked)
-        np.testing.assert_equal(True, ma.allequal(collapsed_cube.data,
-                                                  masked_array))
+        self.assertTrue(ma.allequal(collapsed_cube.data, masked_array))
+        self.assertTrue(ma.isMaskedArray(collapsed_cube.data))
+        self.assertEqual(collapsed_cube.data.shape, (1,))
 
     def test_peak_with_nan_and_mask(self):
         # Single nan in column with single value masked.
@@ -219,12 +214,36 @@ class TestPeakAggregator(tests.IrisTest):
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
                                     np.array([4.024977], dtype=np.float32))
+        self.assertTrue(ma.isMaskedArray(collapsed_cube.data))
+        self.assertEqual(collapsed_cube.data.shape, (1,))
 
         # Only nans in column where values not masked.
         cube.data[0:3] = np.nan
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertTrue(np.isnan(collapsed_cube.data).all())
+        self.assertTrue(ma.isMaskedArray(collapsed_cube.data))
+        self.assertEqual(collapsed_cube.data.shape, (1,))
+
+    def test_peak_against_max(self):
+        # Cube with data that infers a peak value greater than the column max.
+        latitude = iris.coords.DimCoord(range(0, 7, 1),
+                                        standard_name='latitude',
+                                        units='degrees')
+        cube = iris.cube.Cube(np.array([0, 1, 3, 7, 7, 4, 2],
+                                       dtype=np.float32),
+                              standard_name='air_temperature',
+                              units='kelvin')
+        cube.add_dim_coord(latitude, 0)
+
+        collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
+        self.assertArrayAlmostEqual(collapsed_cube.data,
+                                    np.array([7.630991], dtype=np.float32))
+
+        collapsed_cube = cube.collapsed('latitude', iris.analysis.MAX)
+        self.assertArrayAlmostEqual(collapsed_cube.data,
+                                    np.array([7], dtype=np.float32))
+
 
 if __name__ == "__main__":
     tests.main()

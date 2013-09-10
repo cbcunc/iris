@@ -733,13 +733,17 @@ PEAK = Aggregator('Peak of {standard_name:s} {action:s} {coord_names:s}',
                   'peak',
                   _peak)
 """
-The peak of a spline fitted to the data.
+The global peak value, from a spline interpolation of the cube data,
+along the coordinate axis.
 
 The peak calculation takes into account nan values, therefore if the number
 of non-nan values is zero the result itself will be an array of nan values.
 
 The peak calculation also takes into account masked values, therefore if the
 number of non-masked values is zero the result itself will be a masked array.
+
+If multiple coordinates are to be collapsed, the peak calculations are
+performed individually, in sequence, for each coordinate specified.
 
 For example, to compute the peak over time::
 

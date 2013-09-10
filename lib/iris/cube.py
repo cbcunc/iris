@@ -2301,6 +2301,8 @@ over month, year
             # Remove duplicate dimensions.
             new_dims = collections.OrderedDict.fromkeys(
                 d for dim in dims_to_collapse for d in dim)
+            # Reverse the dimensions so the order can be maintained when
+            # reshaping the data.
             dims_to_collapse = list(new_dims)[::-1]
         else:
             dims_to_collapse = set()
@@ -2362,7 +2364,6 @@ over month, year
             # Perform the same operation on the weights if applicable
             if kwargs.get("weights") is not None:
                 weights = kwargs["weights"].view()
-                dims = untouched_dims + dims_to_collapse
                 kwargs["weights"] = np.transpose(weights,
                                                  dims).reshape(new_shape)
 
