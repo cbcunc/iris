@@ -520,7 +520,11 @@ def _peak(array, **kwargs):
             k = length - 1
         return k
 
-    data = array.astype('float32')
+    if array.dtype != 'float32' and array.dtype != 'float64':
+        data = array.astype('float32')
+    else:
+        data = array.astype(array.dtype)
+
     masked = False
     nan_values = []
 
@@ -532,7 +536,7 @@ def _peak(array, **kwargs):
         ndindex = list(ndindex)
         ndindex[-1] = slice(None)
         indices = tuple(ndindex)
-        column_slice = array[indices]
+        column_slice = data[indices]
 
         # Check if the column slice contains a single value, nans only,
         # masked values only or if the values are all equal.
@@ -549,7 +553,8 @@ def _peak(array, **kwargs):
             masked = True
             fill_value = column_slice.fill_value
 
-            # Check if the column slice contains nans and masked values only.
+            # Check if the column slice contains only nans, without inf
+            # or -inf values, regardless of the mask.
             if not np.any(np.isfinite(column_slice)) and \
                     not np.any(np.isinf(column_slice)):
                 data[indices] = np.nan
