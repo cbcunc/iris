@@ -105,7 +105,7 @@ class TestPeakAggregator(tests.IrisTest):
         latitude = iris.coords.DimCoord(range(0, 3, 1),
                                         standard_name='latitude',
                                         units='degrees')
-        cube = iris.cube.Cube(np.array([[1, 2, 3, 1], [4, 5, 6, 4],
+        cube = iris.cube.Cube(np.array([[1, 2, 3, 1], [4, 5, 7, 4],
                                         [2, 3, 4, 2]]),
                               standard_name='air_temperature',
                               units='kelvin')
@@ -115,23 +115,24 @@ class TestPeakAggregator(tests.IrisTest):
 
         collapsed_cube = cube.collapsed('longitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([3, 6, 4], dtype=np.float32))
+                                    np.array([3, 7.024054, 4],
+                                             dtype=np.float32))
 
         collapsed_cube = cube.collapsed('latitude', iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
                                     np.array([4.024977, 5.024977,
-                                              6.024977, 4.024977],
+                                              7.017852, 4.024977],
                                              dtype=np.float32))
 
         collapsed_cube = cube.collapsed(('longitude', 'latitude'),
                                         iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([6.024977], dtype=np.float32))
+                                    np.array([7.041787], dtype=np.float32))
 
         collapsed_cube = cube.collapsed(('latitude', 'longitude'),
                                         iris.analysis.PEAK)
         self.assertArrayAlmostEqual(collapsed_cube.data,
-                                    np.array([6.024977], dtype=np.float32))
+                                    np.array([7.041629], dtype=np.float32))
 
     def test_peak_without_peak_value(self):
         # No peak in column (values equal).
