@@ -536,16 +536,17 @@ def _peak(array, **kwargs):
 
         # Check if the column slice contains a single value, nans only,
         # masked values only or if the values are all equal.
+        equal_slice = np.ones(column_slice.size,
+                              dtype=column_slice.dtype) * column_slice[0]
         if column_slice.size == 1 or \
                 all(np.isnan(column_slice)) or \
-                np.ma.count(column_slice) == 0 or \
-                all(point == column_slice[0] for point in column_slice):
+                ma.count(column_slice) == 0 or \
+                np.all(np.equal(equal_slice, column_slice)):
             continue
 
         # Check if the column slice is masked.
-        if np.ma.isMaskedArray(column_slice):
+        if ma.isMaskedArray(column_slice):
             masked = True
-            fill_value = None
             fill_value = column_slice.fill_value
 
             # Check if the column slice contains nans and masked values only.
@@ -600,9 +601,9 @@ def _peak(array, **kwargs):
 
         # Re-mask the original masked values.
         if np.any(mask):
-            data = np.ma.MaskedArray(data,
-                                     mask,
-                                     fill_value=fill_value)
+            data = ma.MaskedArray(data,
+                                  mask,
+                                  fill_value=fill_value)
 
     slices = [slice(None)] * data.ndim
     slices[-1] = 0
