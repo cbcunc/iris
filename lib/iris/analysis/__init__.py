@@ -491,24 +491,21 @@ def _sum(array, **kwargs):
 
 def _peak(array, **kwargs):
     def column_segments(column):
-        nan_indices = [index for index, value in enumerate(column)
-                       if np.isnan(value)]
+        nan_indices = np.where(np.isnan(column))[0]
         columns = []
 
         if len(nan_indices) == 0:
             columns.append(column)
-        elif len(nan_indices) == 1:
-            columns.append(column[:nan_indices[0]])
-            columns.append(column[nan_indices[0] + 1:])
         else:
-            for index, value in enumerate(nan_indices):
+            for index, nan_index in enumerate(nan_indices):
                 if index == 0:
-                    columns.append(column[:value])
-                elif index == len(nan_indices) - 1:
-                    columns.append(column[value + 1:])
-
-                if index != len(nan_indices) - 1:
-                    columns.append(column[value + 1:nan_indices[index + 1]])
+                    if index != nan_index:
+                        columns.append(column[:nan_index])
+                elif nan_indices[index - 1] != (nan_index - 1):
+                    columns.append(column[nan_indices[index - 1] + 1:
+                                   nan_index])
+            if nan_indices[-1] != len(column) - 1:
+                columns.append(column[nan_indices[-1] + 1:])
         return columns
 
     def interp_order(length):
@@ -569,25 +566,20 @@ def _peak(array, **kwargs):
         column_peaks = []
 
         for column in columns:
-            if len(column) == 0:
-                continue
-
-            # Determine the interpolation order.
+            # Determine the interpolation order for the spline fit.
             k = interp_order(column.size)
 
             if k is None:
                 column_peaks.append(column[0])
                 continue
 
-            tck = scipy.interpolate.splrep(range(0, column.size, 1),
-                                           column,
-                                           k=k)
+            tck = scipy.interpolate.splrep(range(column.size), column, k=k)
             npoints = column.size * 100
             points = np.linspace(0, column.size - 1, npoints)
             spline = scipy.interpolate.splev(points, tck)
 
-            column_max = max(column)
-            spline_max = max(spline)
+            column_max = np.max(column)
+            spline_max = np.max(spline)
             # Check if the max value of the spline is greater than the
             # max value of the column.
             if spline_max > column_max:
@@ -595,7 +587,7 @@ def _peak(array, **kwargs):
             else:
                 column_peaks.append(column_max)
 
-        data[indices] = max(column_peaks)
+        data[indices] = np.max(column_peaks)
 
     if masked:
         mask = np.isnan(data)
