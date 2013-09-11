@@ -517,10 +517,10 @@ def _peak(array, **kwargs):
             k = length - 1
         return k
 
-    if array.dtype != 'float32' and array.dtype != 'float64':
-        data = array.astype('float32')
+    if isinstance(array.dtype, np.float):
+        data = array.copy()
     else:
-        data = array.astype(array.dtype)
+        data = array.astype('float32')
 
     masked = False
     nan_values = []
