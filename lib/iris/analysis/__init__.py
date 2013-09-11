@@ -517,23 +517,26 @@ def _peak(array, **kwargs):
             k = length - 1
         return k
 
+
+    # Collapse array to its final data shape.
+    slices = [slice(None)] * array.ndim
+    slices[-1] = 0
+
     if isinstance(array.dtype, np.float):
-        data = array.copy()
+        data = array[slices]
     else:
-        data = array.astype('float32')
+        # Cast non-float data type.
+        data = array.astype('float32')[slices]
 
-    masked = False
-    nan_values = []
-
+    # Generate nd-index iterator over array.
     shape = list(array.shape)
     shape[-1] = 1
     ndindices = np.ndindex(*shape)
 
     for ndindex in ndindices:
-        ndindex = list(ndindex)
-        ndindex[-1] = slice(None)
-        indices = tuple(ndindex)
-        column_slice = data[indices]
+        ndindex_slice = list(ndindex)
+        ndindex_slice[-1] = slice(None)
+        column_slice = array[tuple(ndindex_slice)]
 
         # Check if the column slice contains a single value, nans only,
         # masked values only or if the values are all equal.
@@ -547,15 +550,11 @@ def _peak(array, **kwargs):
 
         # Check if the column slice is masked.
         if ma.isMaskedArray(column_slice):
-            masked = True
-            fill_value = column_slice.fill_value
-
             # Check if the column slice contains only nans, without inf
             # or -inf values, regardless of the mask.
             if not np.any(np.isfinite(column_slice)) and \
                     not np.any(np.isinf(column_slice)):
-                data[indices] = np.nan
-                nan_values.append(indices)
+                data[ndindex[:-1]] = np.nan
                 continue
 
             # Replace masked values with nans.
@@ -587,24 +586,7 @@ def _peak(array, **kwargs):
             else:
                 column_peaks.append(column_max)
 
-        data[indices] = np.max(column_peaks)
-
-    if masked:
-        mask = np.isnan(data)
-
-        # Remove the actual nans from the mask.
-        for value in nan_values:
-            mask[value] = False
-
-        # Re-mask the original masked values.
-        if np.any(mask):
-            data = ma.MaskedArray(data,
-                                  mask,
-                                  fill_value=fill_value)
-
-    slices = [slice(None)] * data.ndim
-    slices[-1] = 0
-    data = data[slices]
+        data[ndindex[:-1]] = np.max(column_peaks)
 
     return data
 
