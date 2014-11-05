@@ -2657,6 +2657,11 @@ bound=(1994-12-01 00:00:00, 1998-12-01 00:00:00)
         for factory in self.aux_factories:
             new_cube.add_aux_factory(factory.updated(coord_mapping))
 
+        if hasattr(self, 'mesh'):
+            new_cube.mesh = copy.deepcopy(self.mesh, memo)
+        if hasattr(self, 'mesh_dimension'):
+            new_cube.mesh_dimension = copy.deepcopy(self.mesh_dimension, memo)
+
         return new_cube
 
     # START OPERATOR OVERLOADS
