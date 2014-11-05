@@ -298,7 +298,7 @@ class _CoordSignature(namedtuple('CoordSignature',
 
 class _CubeSignature(namedtuple('CubeSignature',
                                 ['defn', 'data_shape', 'data_type',
-                                 'fill_value'])):
+                                 'fill_value', 'ugrid'])):
     """
     Criterion for identifying a specific type of :class:`iris.cube.Cube`
     based on its metadata.
@@ -317,6 +317,9 @@ class _CubeSignature(namedtuple('CubeSignature',
     * fill_value:
         The value to be used to mark missing data in the data payload,
         or None if no such value exists.
+
+    * ugrid:
+        Unstructured grid meta-data.
 
     """
     def _defn_msgs(self, other_defn):
@@ -399,6 +402,8 @@ class _CubeSignature(namedtuple('CubeSignature',
         match = not bool(msgs)
         if error_on_mismatch and not match:
             raise iris.exceptions.MergeError(msgs)
+        # XXX We need to perform a ugrid comparision here.
+        # See pyugrid issue #51.
         return match
 
 
@@ -1445,6 +1450,9 @@ class ProtoCube(object):
                               aux_coords_and_dims=aux_coords_and_dims,
                               **kwargs)
 
+        cube.mesh = signature.ugrid['mesh']
+        cube.mesh_dimension = signature.ugrid['mesh_dimension']
+
         # Add on any aux coord factories.
         for factory_defn in self._coord_signature.factory_defns:
             args = {}
@@ -1551,8 +1559,11 @@ class ProtoCube(object):
     def _build_signature(self, cube):
         """Generate the signature that defines this cube."""
         array = cube.lazy_data()
+        mesh = cube.mesh if hasattr(cube, 'mesh') else None
+        mdim = cube.mesh_dimension if hasattr(cube, 'mesh_dimension') else None
+        ugrid = dict(mesh=mesh, mesh_dimension=mdim)
         return _CubeSignature(cube.metadata, cube.shape, array.dtype,
-                              array.fill_value)
+                              array.fill_value, ugrid)
 
     def _add_cube(self, cube, coord_payload):
         """Create and add the source-cube skeleton to the ProtoCube."""
